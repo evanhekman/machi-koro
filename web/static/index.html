@@ -75,7 +75,29 @@ body {
 
 /* ── Dice ────────────────────────────────────────────── */
 #dice-area { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
-#dice-row { display: flex; gap: 18px; min-height: 88px; align-items: center; }
+#coin-row  { display: flex; align-items: center; gap: 22px; justify-content: center; }
+#dice-row  { display: flex; gap: 18px; min-height: 88px; align-items: center; }
+
+/* ── Coin pools ──────────────────────────────────── */
+.coin-pool { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 52px; }
+.coin-stack { position: relative; width: 36px; height: 46px; }
+.coin-disc {
+  position: absolute; left: 1px;
+  width: 34px; height: 13px; border-radius: 50%;
+  background: linear-gradient(180deg, #f0e068 0%, #b88a10 100%);
+  border: 1px solid #f8ec80;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+.coin-pool-label { font-size: 9px; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; }
+
+/* ── Coin streak ─────────────────────────────────── */
+.coin-streak {
+  position: fixed; pointer-events: none; z-index: 1000;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8c0, #d4a820);
+  box-shadow: 0 0 6px 3px rgba(240,200,40,0.9), 0 0 14px rgba(240,200,40,0.45);
+  transform: translate(-50%, -50%);
+}
 
 .die {
   width: 84px; height: 84px; background: #f0ede8; border-radius: 14px;
@@ -349,7 +371,27 @@ select.ov {
   <div id="left-col"  class="player-col"></div>
   <div id="center">
     <div id="dice-area">
-      <div id="dice-row"></div>
+      <div id="coin-row">
+        <div id="coin-pool-left" class="coin-pool">
+          <div class="coin-stack">
+            <div class="coin-disc" style="bottom:27px"></div>
+            <div class="coin-disc" style="bottom:18px"></div>
+            <div class="coin-disc" style="bottom:9px"></div>
+            <div class="coin-disc" style="bottom:0"></div>
+          </div>
+          <div class="coin-pool-label">BANK</div>
+        </div>
+        <div id="dice-row"></div>
+        <div id="coin-pool-right" class="coin-pool">
+          <div class="coin-stack">
+            <div class="coin-disc" style="bottom:27px"></div>
+            <div class="coin-disc" style="bottom:18px"></div>
+            <div class="coin-disc" style="bottom:9px"></div>
+            <div class="coin-disc" style="bottom:0"></div>
+          </div>
+          <div class="coin-pool-label">BANK</div>
+        </div>
+      </div>
       <div id="roll-hint"></div>
     </div>
     <div id="card-section">
@@ -529,6 +571,71 @@ function showDicePlaceholder(n) {
   }
 }
 
+// ── Coin animations ────────────────────────────────────────────────────────
+
+async function animateCoinStreak(fromEl, toEl, delay) {
+  if (delay) await sleep(delay);
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const dot = document.createElement('div');
+  dot.className = 'coin-streak';
+  dot.style.cssText = `left:${fr.left+fr.width/2}px;top:${fr.top+fr.height/2}px;transition-duration:0s`;
+  document.body.appendChild(dot);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    dot.style.transitionProperty = 'left,top,opacity,transform';
+    dot.style.transitionDuration = '0.45s,0.45s,0.18s,0.45s';
+    dot.style.transitionDelay    = '0s,0s,0.3s,0s';
+    dot.style.transitionTimingFunction = 'cubic-bezier(0.4,0,0.2,1),cubic-bezier(0.4,0,0.2,1),ease-in,ease-in';
+    dot.style.left      = (tr.left + tr.width  / 2) + 'px';
+    dot.style.top       = (tr.top  + tr.height / 2) + 'px';
+    dot.style.opacity   = '0';
+    dot.style.transform = 'translate(-50%,-50%) scale(0.3)';
+  }));
+  await sleep(520);
+  dot.remove();
+}
+
+async function animateCoins(oldSt, newSt) {
+  if (!oldSt || !newSt) return;
+  const deltas = newSt.players.map((p, i) => p.coins - oldSt.players[i].coins);
+  const losers  = deltas.map((d, i) => ({ i, d })).filter(x => x.d < 0);
+  const gainers = deltas.map((d, i) => ({ i, d })).filter(x => x.d > 0);
+  if (!gainers.length) return;
+
+  const promises = [];
+  gainers.forEach(({ i: toIdx, d }) => {
+    const toEl = document.querySelector(`.player-box[data-pid="${toIdx}"]`);
+    if (!toEl) return;
+
+    if (losers.length === 0) {
+      // Bank → player
+      const tr = toEl.getBoundingClientRect();
+      const fromEl = document.getElementById(tr.left < window.innerWidth / 2 ? 'coin-pool-left' : 'coin-pool-right');
+      if (!fromEl) return;
+      const count = Math.min(Math.abs(d), 8);
+      for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, s * 75));
+
+    } else if (losers.length === 1) {
+      // One player → another player (red cards, tv_station)
+      const fromEl = document.querySelector(`.player-box[data-pid="${losers[0].i}"]`);
+      if (!fromEl) return;
+      const count = Math.min(Math.abs(d), 8);
+      for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, s * 75));
+
+    } else {
+      // Multiple players → one player (stadium)
+      losers.forEach(({ i: fromIdx, d: loss }, li) => {
+        const fromEl = document.querySelector(`.player-box[data-pid="${fromIdx}"]`);
+        if (!fromEl) return;
+        const count = Math.min(Math.abs(loss), 3);
+        for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, (li * 3 + s) * 75));
+      });
+    }
+  });
+
+  await Promise.all(promises);
+}
+
 // ── Roll action ────────────────────────────────────────────────────────────
 
 async function doRoll(nDice) {
@@ -536,6 +643,7 @@ async function doRoll(nDice) {
   const ap = state.players[state.current_player];
   nDice = nDice ?? (ap.landmarks.train_station ? 2 : 1);
   busy = true; updateUI();
+  const prevState = state;
 
   let rolling = true;
   ;(async () => {
@@ -560,6 +668,7 @@ async function doRoll(nDice) {
     await sleep(100);
     await syncBuildable();
     selected = null; render();
+    await animateCoins(prevState, state);
   } catch(e) { rolling=false; alert(e.message); }
   finally { busy=false; updateUI(); }
 }
@@ -631,6 +740,7 @@ function toggleSelect(key) {
   if (state?.phase !== 'build') return;
   selected = selected === key ? null : key;
   renderCardGrid(); renderLandmarkGrid(); updateUI();
+  if (window.lucide) lucide.createIcons();
 }
 
 async function doPurchase() {
@@ -652,9 +762,11 @@ async function doSkip() {
 
 async function act(body) {
   try {
+    const prevState = state;
     state = await api('POST','/api/action',body);
     await syncBuildable();
     selected = null; render();
+    await animateCoins(prevState, state);
   } catch(e) { alert(e.message); }
 }
 
@@ -932,6 +1044,7 @@ function confirmBc() {
 async function doReroll() {
   document.getElementById('overlay').style.display='none';
   busy=true;
+  const prevState = state;
   const nDice = state.last_dice?.length ?? 1;
   let rolling=true;
   ;(async()=>{ const row=document.getElementById('dice-row'); while(rolling){row.innerHTML='';for(let i=0;i<nDice;i++)row.appendChild(makeDie(randFace(),true));await sleep(40);} })();
@@ -942,6 +1055,7 @@ async function doReroll() {
     state.last_dice.forEach(f=>row.appendChild(makeDie(f,false)));
     await sleep(100);
     await syncBuildable(); selected=null; render();
+    await animateCoins(prevState, state);
   } catch(e){rolling=false;alert(e.message);}
   finally{busy=false;updateUI();}
 }
