@@ -22,21 +22,21 @@ class CardDef:
 
 
 CARDS: dict[str, CardDef] = {
-    "wheat_field":       CardDef("Wheat Field",             Color.BLUE,   (1,),      1,  "Get 1 coin from bank. (anyone's turn)"),
-    "ranch":             CardDef("Ranch",                   Color.BLUE,   (2,),      1,  "Get 1 coin from bank. (anyone's turn)"),
-    "bakery":            CardDef("Bakery",                  Color.GREEN,  (2, 3),    1,  "Get 1 coin from bank. (your turn)"),
-    "cafe":              CardDef("Cafe",                    Color.RED,    (3,),      2,  "Take 1 coin from active player. (their turn)"),
-    "convenience_store": CardDef("Convenience Store",       Color.GREEN,  (4,),      2,  "Get 3 coins from bank. (your turn)"),
-    "forest":            CardDef("Forest",                  Color.BLUE,   (5,),      3,  "Get 1 coin from bank. (anyone's turn)"),
-    "stadium":           CardDef("Stadium",                 Color.PURPLE, (6,),      6,  "Take 2 coins from all players. (your turn)"),
-    "tv_station":        CardDef("TV Station",              Color.PURPLE, (6,),      7,  "Take 5 coins from any one player. (your turn)"),
-    "business_center":   CardDef("Business Center",         Color.PURPLE, (6,),      8,  "Trade one establishment with another player. (your turn)"),
-    "cheese_factory":    CardDef("Cheese Factory",          Color.GREEN,  (7,),      5,  "Get 3 coins per Ranch you own. (your turn)"),
-    "furniture_factory": CardDef("Furniture Factory",       Color.GREEN,  (8,),      3,  "Get 3 coins per Forest or Mine you own. (your turn)"),
-    "mine":              CardDef("Mine",                    Color.BLUE,   (9,),      6,  "Get 5 coins from bank. (anyone's turn)"),
-    "family_restaurant": CardDef("Family Restaurant",       Color.RED,    (9, 10),   3,  "Take 2 coins from active player. (their turn)"),
-    "apple_orchard":     CardDef("Apple Orchard",           Color.BLUE,   (10,),     3,  "Get 3 coins from bank. (anyone's turn)"),
-    "fruit_veg_market":  CardDef("Fruit and Veg Market",    Color.GREEN,  (11, 12),  2,  "Get 2 coins per Wheat Field or Apple Orchard. (your turn)"),
+    "wheat_field":       CardDef("Wheat Field",             Color.BLUE,   (1,),      1,  "Get 1 coin from bank, on anyone's turn."),
+    "ranch":             CardDef("Ranch",                   Color.BLUE,   (2,),      1,  "Get 1 coin from bank, on anyone's turn."),
+    "bakery":            CardDef("Bakery",                  Color.GREEN,  (2, 3),    1,  "Get 1 coin from bank, on your turn."),
+    "cafe":              CardDef("Cafe",                    Color.RED,    (3,),      2,  "Take 1 coin from active player, on their turn."),
+    "convenience_store": CardDef("Convenience Store",       Color.GREEN,  (4,),      2,  "Get 3 coins from bank, on your turn."),
+    "forest":            CardDef("Forest",                  Color.BLUE,   (5,),      3,  "Get 1 coin from bank, on anyone's turn."),
+    "stadium":           CardDef("Stadium",                 Color.PURPLE, (6,),      6,  "Take 2 coins from all players, on your turn."),
+    "tv_station":        CardDef("TV Station",              Color.PURPLE, (6,),      7,  "Take 5 coins from any one player, on your turn."),
+    "business_center":   CardDef("Business Center",         Color.PURPLE, (6,),      8,  "Trade one establishment with another player, on your turn."),
+    "cheese_factory":    CardDef("Cheese Factory",          Color.GREEN,  (7,),      5,  "Get 3 coins per Ranch you own, on your turn."),
+    "furniture_factory": CardDef("Furniture Factory",       Color.GREEN,  (8,),      3,  "Get 3 coins per Forest or Mine you own, on your turn."),
+    "mine":              CardDef("Mine",                    Color.BLUE,   (9,),      6,  "Get 5 coins from bank, on anyone's turn."),
+    "family_restaurant": CardDef("Family Restaurant",       Color.RED,    (9, 10),   3,  "Take 2 coins from active player, on their turn."),
+    "apple_orchard":     CardDef("Apple Orchard",           Color.BLUE,   (10,),     3,  "Get 3 coins from bank, on anyone's turn."),
+    "fruit_veg_market":  CardDef("Fruit and Veg Market",    Color.GREEN,  (11, 12),  2,  "Get 2 coins per Wheat Field or Apple Orchard, on your turn."),
 }
 
 LANDMARKS: list[str] = ["train_station", "shopping_mall", "amusement_park", "radio_tower"]
