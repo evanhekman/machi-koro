@@ -79,23 +79,29 @@ body {
 #dice-row  { display: flex; gap: 18px; min-height: 88px; align-items: center; }
 
 /* ── Coin pools ──────────────────────────────────── */
-.coin-pool { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 52px; }
-.coin-stack { position: relative; width: 36px; height: 46px; }
-.coin-disc {
-  position: absolute; left: 1px;
-  width: 34px; height: 13px; border-radius: 50%;
-  background: linear-gradient(180deg, #f0e068 0%, #b88a10 100%);
-  border: 1px solid #f8ec80;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+.coin-pool {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  min-width: 52px; padding: 6px; border-radius: 8px;
+  transition: box-shadow 0.25s;
+}
+.coin-pool.glow-red    { box-shadow: 0 0 0 1.5px rgba(217,83,79,0.7),   0 0 20px rgba(217,83,79,0.55); }
+.coin-pool.glow-blue   { box-shadow: 0 0 0 1.5px rgba(91,155,213,0.7),  0 0 20px rgba(91,155,213,0.55); }
+.coin-pool.glow-green  { box-shadow: 0 0 0 1.5px rgba(92,184,92,0.7),   0 0 20px rgba(92,184,92,0.55); }
+.coin-pool.glow-purple { box-shadow: 0 0 0 1.5px rgba(155,89,182,0.7),  0 0 20px rgba(155,89,182,0.55); }
+.coin-pile { position: relative; width: 44px; height: 36px; }
+.coin-pip {
+  position: absolute; width: 11px; height: 11px; border-radius: 50%;
+  background: #777; border: 1px solid #999;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 .coin-pool-label { font-size: 9px; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; }
 
 /* ── Coin streak ─────────────────────────────────── */
 .coin-streak {
   position: fixed; pointer-events: none; z-index: 1000;
-  width: 14px; height: 14px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff8c0, #d4a820);
-  box-shadow: 0 0 6px 3px rgba(240,200,40,0.9), 0 0 14px rgba(240,200,40,0.45);
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #bbb; border: 1px solid #ddd;
+  box-shadow: 0 0 5px 2px rgba(180,180,180,0.6);
   transform: translate(-50%, -50%);
 }
 
@@ -373,21 +379,27 @@ select.ov {
     <div id="dice-area">
       <div id="coin-row">
         <div id="coin-pool-left" class="coin-pool">
-          <div class="coin-stack">
-            <div class="coin-disc" style="bottom:27px"></div>
-            <div class="coin-disc" style="bottom:18px"></div>
-            <div class="coin-disc" style="bottom:9px"></div>
-            <div class="coin-disc" style="bottom:0"></div>
+          <div class="coin-pile">
+            <div class="coin-pip" style="left:2px;top:14px"></div>
+            <div class="coin-pip" style="left:10px;top:4px"></div>
+            <div class="coin-pip" style="left:20px;top:1px"></div>
+            <div class="coin-pip" style="left:30px;top:7px"></div>
+            <div class="coin-pip" style="left:5px;top:23px"></div>
+            <div class="coin-pip" style="left:17px;top:19px"></div>
+            <div class="coin-pip" style="left:29px;top:21px"></div>
           </div>
           <div class="coin-pool-label">BANK</div>
         </div>
         <div id="dice-row"></div>
         <div id="coin-pool-right" class="coin-pool">
-          <div class="coin-stack">
-            <div class="coin-disc" style="bottom:27px"></div>
-            <div class="coin-disc" style="bottom:18px"></div>
-            <div class="coin-disc" style="bottom:9px"></div>
-            <div class="coin-disc" style="bottom:0"></div>
+          <div class="coin-pile">
+            <div class="coin-pip" style="left:2px;top:14px"></div>
+            <div class="coin-pip" style="left:10px;top:4px"></div>
+            <div class="coin-pip" style="left:20px;top:1px"></div>
+            <div class="coin-pip" style="left:30px;top:7px"></div>
+            <div class="coin-pip" style="left:5px;top:23px"></div>
+            <div class="coin-pip" style="left:17px;top:19px"></div>
+            <div class="coin-pip" style="left:29px;top:21px"></div>
           </div>
           <div class="coin-pool-label">BANK</div>
         </div>
@@ -573,13 +585,34 @@ function showDicePlaceholder(n) {
 
 // ── Coin animations ────────────────────────────────────────────────────────
 
-async function animateCoinStreak(fromEl, toEl, delay) {
+const PHASE_GLOW = {
+  red:    'rgba(217,83,79,0.9)',
+  blue:   'rgba(91,155,213,0.9)',
+  green:  'rgba(92,184,92,0.9)',
+  purple: 'rgba(155,89,182,0.9)',
+};
+
+function setPoolGlow(color) {
+  ['coin-pool-left','coin-pool-right'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'coin-pool' + (color ? ` glow-${color}` : '');
+  });
+}
+
+function bankPool(toEl) {
+  const tr = toEl.getBoundingClientRect();
+  return document.getElementById(tr.left < window.innerWidth / 2 ? 'coin-pool-left' : 'coin-pool-right');
+}
+
+async function animateCoinStreak(fromEl, toEl, delay, glowColor) {
   if (delay) await sleep(delay);
   const fr = fromEl.getBoundingClientRect();
   const tr = toEl.getBoundingClientRect();
   const dot = document.createElement('div');
   dot.className = 'coin-streak';
-  dot.style.cssText = `left:${fr.left+fr.width/2}px;top:${fr.top+fr.height/2}px;transition-duration:0s`;
+  if (glowColor) dot.style.boxShadow = `0 0 6px 3px ${glowColor}, 0 0 14px ${glowColor}`;
+  dot.style.left = (fr.left + fr.width  / 2) + 'px';
+  dot.style.top  = (fr.top  + fr.height / 2) + 'px';
   document.body.appendChild(dot);
   requestAnimationFrame(() => requestAnimationFrame(() => {
     dot.style.transitionProperty = 'left,top,opacity,transform';
@@ -595,45 +628,134 @@ async function animateCoinStreak(fromEl, toEl, delay) {
   dot.remove();
 }
 
-async function animateCoins(oldSt, newSt) {
-  if (!oldSt || !newSt) return;
-  const deltas = newSt.players.map((p, i) => p.coins - oldSt.players[i].coins);
+// Compute per-color transfers from pre-roll state + roll result.
+// Returns {red, blue, green, purple}: each an array of {from:'bank'|pid, to:pid, amount}.
+function computePhaseTransfers(prevSt, newSt) {
+  const roll = newSt.last_roll;
+  if (!roll || !cardDefs) return null;
+  const active  = prevSt.current_player;
+  const players = prevSt.players;
+  const ap      = players[active];
+  const hasMall = ap.landmarks?.shopping_mall;
+  const phases  = { red: [], blue: [], green: [], purple: [] };
+
+  // RED — cafe, family_restaurant owned by non-active players
+  [['cafe',1],['family_restaurant',2]].forEach(([key,base]) => {
+    if (!cardDefs[key]?.activation.includes(roll)) return;
+    players.forEach((p,i) => {
+      if (i === active) return;
+      const n = p.cards[key] ?? 0;
+      if (n) phases.red.push({ from: active, to: i, amount: n * (base + (hasMall ? 1 : 0)) });
+    });
+  });
+
+  // BLUE — all players
+  const blueBase = { wheat_field:1, ranch:1, forest:1, mine:5, apple_orchard:3 };
+  Object.entries(blueBase).forEach(([key,base]) => {
+    if (!cardDefs[key]?.activation.includes(roll)) return;
+    players.forEach((p,i) => {
+      const n = p.cards[key] ?? 0;
+      if (n) phases.blue.push({ from: 'bank', to: i, amount: n * base });
+    });
+  });
+
+  // GREEN — active player only
+  if (cardDefs['bakery']?.activation.includes(roll)) {
+    const n = ap.cards['bakery'] ?? 0;
+    if (n) phases.green.push({ from:'bank', to:active, amount: n * (1 + (hasMall?1:0)) });
+  }
+  if (cardDefs['convenience_store']?.activation.includes(roll)) {
+    const n = ap.cards['convenience_store'] ?? 0;
+    if (n) phases.green.push({ from:'bank', to:active, amount: n * (3 + (hasMall?1:0)) });
+  }
+  if (cardDefs['cheese_factory']?.activation.includes(roll)) {
+    const n = ap.cards['cheese_factory'] ?? 0, r = ap.cards['ranch'] ?? 0;
+    if (n && r) phases.green.push({ from:'bank', to:active, amount: n * 3 * r });
+  }
+  if (cardDefs['furniture_factory']?.activation.includes(roll)) {
+    const n = ap.cards['furniture_factory'] ?? 0;
+    const res = (ap.cards['forest'] ?? 0) + (ap.cards['mine'] ?? 0);
+    if (n && res) phases.green.push({ from:'bank', to:active, amount: n * 3 * res });
+  }
+  if (cardDefs['fruit_veg_market']?.activation.includes(roll)) {
+    const n = ap.cards['fruit_veg_market'] ?? 0;
+    const prod = (ap.cards['wheat_field'] ?? 0) + (ap.cards['apple_orchard'] ?? 0);
+    if (n && prod) phases.green.push({ from:'bank', to:active, amount: n * 2 * prod });
+  }
+
+  // PURPLE — stadium (auto-resolved during roll)
+  if (cardDefs['stadium']?.activation.includes(roll)) {
+    const n = ap.cards['stadium'] ?? 0;
+    if (n) players.forEach((p,i) => {
+      if (i === active) return;
+      const amt = Math.min(p.coins, 2 * n);
+      if (amt) phases.purple.push({ from: i, to: active, amount: amt });
+    });
+  }
+
+  return phases;
+}
+
+async function runPhaseStreaks(transfers, color) {
+  const glow = PHASE_GLOW[color];
+  const promises = [];
+  transfers.forEach(({ from, to, amount }) => {
+    const toEl = document.querySelector(`.player-box[data-pid="${to}"]`);
+    if (!toEl) return;
+    const fromEl = from === 'bank'
+      ? bankPool(toEl)
+      : document.querySelector(`.player-box[data-pid="${from}"]`);
+    if (!fromEl) return;
+    const count = Math.min(amount, 7);
+    for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, s * 75, glow));
+  });
+  await Promise.all(promises);
+}
+
+async function animateCoins(prevSt, newSt) {
+  if (!prevSt || !newSt) return;
+
+  const wasRoll = (prevSt.phase === 'roll' || prevSt.phase === 'reroll') && newSt.last_roll;
+
+  if (wasRoll) {
+    const phases = computePhaseTransfers(prevSt, newSt);
+    if (!phases) return;
+    for (const color of ['red','blue','green','purple']) {
+      const transfers = phases[color];
+      if (!transfers.length) continue;
+      setPoolGlow(color);
+      await runPhaseStreaks(transfers, color);
+      await sleep(500);
+      setPoolGlow(null);
+      await sleep(80);
+    }
+    return;
+  }
+
+  // Non-roll action (tv_station, etc.) — simple diff with purple glow
+  const deltas  = newSt.players.map((p, i) => p.coins - prevSt.players[i].coins);
   const losers  = deltas.map((d, i) => ({ i, d })).filter(x => x.d < 0);
   const gainers = deltas.map((d, i) => ({ i, d })).filter(x => x.d > 0);
   if (!gainers.length) return;
+
+  const isTvStation = prevSt.phase === 'tv_station';
+  if (isTvStation) setPoolGlow('purple');
 
   const promises = [];
   gainers.forEach(({ i: toIdx, d }) => {
     const toEl = document.querySelector(`.player-box[data-pid="${toIdx}"]`);
     if (!toEl) return;
-
-    if (losers.length === 0) {
-      // Bank → player
-      const tr = toEl.getBoundingClientRect();
-      const fromEl = document.getElementById(tr.left < window.innerWidth / 2 ? 'coin-pool-left' : 'coin-pool-right');
-      if (!fromEl) return;
-      const count = Math.min(Math.abs(d), 8);
-      for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, s * 75));
-
-    } else if (losers.length === 1) {
-      // One player → another player (red cards, tv_station)
-      const fromEl = document.querySelector(`.player-box[data-pid="${losers[0].i}"]`);
-      if (!fromEl) return;
-      const count = Math.min(Math.abs(d), 8);
-      for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, s * 75));
-
-    } else {
-      // Multiple players → one player (stadium)
-      losers.forEach(({ i: fromIdx, d: loss }, li) => {
-        const fromEl = document.querySelector(`.player-box[data-pid="${fromIdx}"]`);
-        if (!fromEl) return;
-        const count = Math.min(Math.abs(loss), 3);
-        for (let s = 0; s < count; s++) promises.push(animateCoinStreak(fromEl, toEl, (li * 3 + s) * 75));
-      });
-    }
+    let fromEl = losers.length === 1
+      ? document.querySelector(`.player-box[data-pid="${losers[0].i}"]`)
+      : bankPool(toEl);
+    if (!fromEl) return;
+    const count = Math.min(Math.abs(d), 8);
+    for (let s = 0; s < count; s++)
+      promises.push(animateCoinStreak(fromEl, toEl, s * 75, isTvStation ? PHASE_GLOW.purple : null));
   });
 
   await Promise.all(promises);
+  if (isTvStation) { await sleep(500); setPoolGlow(null); }
 }
 
 // ── Roll action ────────────────────────────────────────────────────────────
