@@ -48,7 +48,7 @@ LANDMARKS: dict[str, dict] = {
 
 SUPPLY_COUNTS: dict[str, int] = {k: 6 for k in CARDS}
 SOLITAIRE_SUPPLY: dict[str, int] = {
-    k: 6 for k, v in CARDS.items() if v.color in (Color.BLUE, Color.GREEN)
+    k: 3 for k, v in CARDS.items() if v.color in (Color.BLUE, Color.GREEN)
 }
 
 

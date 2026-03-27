@@ -52,7 +52,7 @@ CARD_KEYS: tuple[str, ...] = (
 )
 CARD_IDX: dict[str, int] = {k: i for i, k in enumerate(CARD_KEYS)}
 CARD_COSTS: tuple[int, ...] = tuple(E.CARDS[k].cost for k in CARD_KEYS)
-SUPPLY_MAX: int = 6  # copies per card in solitaire
+SUPPLY_MAX: int = 3  # copies per card in solitaire
 
 LANDMARK_KEYS: tuple[str, ...] = (
     "train_station",   # 0  cost  4  — roll 2 dice
