@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import sys
 import time
-from dataclasses import dataclass
+from typing import NamedTuple
 
 import engine as E
 
@@ -85,8 +85,7 @@ DIST_1, DIST_2 = _build_dists()
 # Hashable analysis state
 # ---------------------------------------------------------------------------
 
-@dataclass(frozen=True)
-class AState:
+class AState(NamedTuple):
     coins:     int
     cards:     tuple[int, ...]   # counts in CARD_KEYS order
     landmarks: tuple[bool, ...]  # (train, mall, park, tower)
@@ -156,8 +155,7 @@ def build_options(state: AState) -> tuple[str | None, ...]:
     Cards are limited by SUPPLY_MAX; landmarks by whether already built.
     Result is cached by (coins, cards, landmarks) — depth-independent.
     """
-    key = (state.coins, state.cards, state.landmarks)
-    cached = _opts_cache.get(key)
+    cached = _opts_cache.get(state)
     if cached is not None:
         return cached
     opts: list[str | None] = [None]
@@ -168,7 +166,7 @@ def build_options(state: AState) -> tuple[str | None, ...]:
         if state.coins >= LANDMARK_COSTS[i] and not state.landmarks[i]:
             opts.append(k)
     result = tuple(opts)
-    _opts_cache[key] = result
+    _opts_cache[state] = result
     return result
 
 
@@ -212,7 +210,7 @@ def analyze(state: AState, depth: int) -> float:
     if state.landmarks == _WIN_LMS: return WIN_VALUE
     if depth <= 0:                  return 0.0
 
-    key = (state.coins, state.cards, state.landmarks, depth)
+    key = state + (depth,)
     if key in _cache: return _cache[key]
 
     dist = DIST_2 if state.has_train else DIST_1
@@ -282,7 +280,7 @@ def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
         elif next_depth <= 0:
             val = 0.0
         else:
-            key = (nc, nk, nl, next_depth)
+            key = (nc, nk, nl, next_depth)  # plain tuple — no AState yet
             if key in _cache:
                 val = _cache[key]
             else:
