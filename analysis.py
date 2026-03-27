@@ -157,25 +157,30 @@ def calc_income(cards: tuple[int, ...],
 _opts_cache: dict[tuple, tuple] = {}
 
 
-def build_options(state: AState) -> tuple[int | None, ...]:
+def build_options(coins: int,
+                  cards: tuple[int, ...],
+                  lms:   tuple[bool, ...]) -> tuple[int | None, ...]:
     """
     All affordable cards/landmarks the player can purchase, plus None (skip).
     Cards are limited by SUPPLY_MAX; landmarks by whether already built.
     Returns Card/Landmark IntEnum members (ints) for zero-cost index lookup.
-    Result is cached per state — depth-independent.
+    Result is cached per (coins, cards, lms) — depth-independent.
+    Key is a plain tuple; AState (a NamedTuple) hashes/compares equal to it,
+    so entries written by either caller hit the same cache slot.
     """
-    cached = _opts_cache.get(state)
+    key = (coins, cards, lms)
+    cached = _opts_cache.get(key)
     if cached is not None:
         return cached
     opts: list[int | None] = [None]
     for card in _ALL_CARDS:
-        if state.coins >= CARD_COSTS[card] and state.cards[card] < SUPPLY_MAX:
+        if coins >= CARD_COSTS[card] and cards[card] < SUPPLY_MAX:
             opts.append(card)
     for lm in _ALL_LANDMARKS:
-        if state.coins >= LANDMARK_COSTS[lm - NUM_CARDS] and not state.landmarks[lm - NUM_CARDS]:
+        if coins >= LANDMARK_COSTS[lm - NUM_CARDS] and not lms[lm - NUM_CARDS]:
             opts.append(lm)
     result = tuple(opts)
-    _opts_cache[state] = result
+    _opts_cache[key] = result
     return result
 
 
@@ -225,11 +230,13 @@ def analyze(state: AState, depth: int) -> float:
 
     if state.has_tower:
         val_reroll = _roll_ev(state, dist, depth)
+        cards, lms = state.cards, state.landmarks
+        has_park = lms[2]  # inlined to avoid property overhead
         ev = 0.0
         for (roll, is_dbl), prob in dist.items():
-            income   = calc_income(state.cards, state.landmarks, roll)
-            s_income = AState(state.coins + income, state.cards, state.landmarks)
-            val_keep = _best_build(s_income, depth, is_dbl and state.has_park)
+            income   = calc_income(cards, lms, roll)
+            val_keep = _best_build(state.coins + income, cards, lms, depth,
+                                   is_dbl and has_park)
             ev      += prob * max(val_keep, val_reroll)
     else:
         ev = _roll_ev(state, dist, depth)
@@ -242,33 +249,42 @@ def _roll_ev(state: AState,
              dist: dict[tuple[int, bool], float],
              depth: int) -> float:
     """Expected value of rolling (no reroll option)."""
+    cards, lms = state.cards, state.landmarks
+    # lms[2] is has_park — inlined to avoid property call overhead on each iteration
+    has_park = lms[2]
     ev = 0.0
     for (roll, is_dbl), prob in dist.items():
-        income   = calc_income(state.cards, state.landmarks, roll)
-        s_income = AState(state.coins + income, state.cards, state.landmarks)
-        ev      += prob * _best_build(s_income, depth, is_dbl and state.has_park)
+        income = calc_income(cards, lms, roll)
+        # Pass raw args to avoid NamedTuple __new__ overhead for throwaway states
+        ev += prob * _best_build(state.coins + income, cards, lms, depth,
+                                 is_dbl and has_park)
     return ev
 
 
 _P_DBL = 1.0 / 6.0  # P(doubles) with 2 dice
 
 
-def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
+def _best_build(coins: int,
+                cards: tuple[int, ...],
+                lms:   tuple[bool, ...],
+                depth: int,
+                extra_turn: bool) -> float:
     """
     Maximum win probability over all build options from the post-income state.
     extra_turn=True (Amusement Park doubles) → one free extra turn whose infinite
     chain of potential further extra turns is collapsed via geometric series:
       V_extra = base + P_DBL * V_extra  →  V_extra = base / (1 - P_DBL) = base * 6/5
 
-    AState construction is deferred until a real cache miss to avoid building
-    ~32M throwaway objects that were immediately discarded on cache hits.
+    Takes raw (coins, cards, lms) instead of AState to avoid NamedTuple __new__
+    overhead on the ~3.3M intermediate states created in _roll_ev that are never
+    stored — only used as a build_options cache key and then discarded.
+    AState construction is still deferred until a real cache miss.
     """
-    if state.landmarks == _WIN_LMS: return WIN_VALUE
+    if lms == _WIN_LMS: return WIN_VALUE
     next_depth = depth - 1
-    coins, cards, lms = state.coins, state.cards, state.landmarks
     best = 0.0
 
-    for opt in build_options(state):
+    for opt in build_options(coins, cards, lms):
         # Compute new state components inline — no AState construction yet
         if opt is None:
             nc, nk, nl = coins, cards, lms
@@ -346,24 +362,26 @@ def _action_roll(astate: AState) -> dict:
 def _roll_ev_for(astate: AState, n_dice: int) -> float:
     """Expected win prob when rolling n_dice dice from astate (no reroll)."""
     dist = DIST_2 if n_dice == 2 else DIST_1
+    cards, lms = astate.cards, astate.landmarks
+    has_park = lms[2]  # inlined to avoid property overhead
     ev = 0.0
     for (roll, is_dbl), prob in dist.items():
-        income   = calc_income(astate.cards, astate.landmarks, roll)
-        s_income = AState(astate.coins + income, astate.cards, astate.landmarks)
-        ev      += prob * _best_build(s_income, DEPTH, is_dbl and astate.has_park)
+        income = calc_income(cards, lms, roll)
+        ev    += prob * _best_build(astate.coins + income, cards, lms, DEPTH,
+                                    is_dbl and has_park)
     return ev
 
 
 def _action_reroll(astate: AState, last_dice: list[int]) -> dict:
     """Radio Tower: decide whether to keep current roll or reroll."""
-    roll      = sum(last_dice)
-    n_dice    = len(last_dice)
-    is_dbl    = n_dice == 2 and last_dice[0] == last_dice[1]
-    dist      = DIST_2 if n_dice == 2 else DIST_1
+    roll   = sum(last_dice)
+    n_dice = len(last_dice)
+    is_dbl = n_dice == 2 and last_dice[0] == last_dice[1]
+    dist   = DIST_2 if n_dice == 2 else DIST_1
 
-    income  = calc_income(astate.cards, astate.landmarks, roll)
-    s_keep  = AState(astate.coins + income, astate.cards, astate.landmarks)
-    val_keep = _best_build(s_keep, DEPTH, is_dbl and astate.has_park)
+    income   = calc_income(astate.cards, astate.landmarks, roll)
+    val_keep = _best_build(astate.coins + income, astate.cards, astate.landmarks,
+                           DEPTH, is_dbl and astate.has_park)
 
     val_reroll = _roll_ev(astate, dist, DEPTH)  # expected value of fresh roll
     return {"type": "reroll", "do_reroll": val_reroll > val_keep}
@@ -374,7 +392,7 @@ def _action_build(astate: AState) -> dict:
     best_opt: int | None = None
     best_val: float      = -1.0
 
-    for opt in build_options(astate):
+    for opt in build_options(astate.coins, astate.cards, astate.landmarks):
         val = analyze(apply_build(astate, opt), DEPTH)
         if val > best_val:
             best_val = val
@@ -477,7 +495,7 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
     for (roll, _), prob_roll in sorted(dist.items()):
         income   = calc_income(s0.cards, s0.landmarks, roll)
         s_income = AState(s0.coins + income, s0.cards, s0.landmarks)
-        opts     = build_options(s_income)
+        opts     = build_options(s_income.coins, s_income.cards, s_income.landmarks)
 
         best_opt: int | None = None
         best_val: float      = -1.0
