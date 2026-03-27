@@ -131,8 +131,14 @@ def strategy_random(state: GameState, pid: int) -> dict:
     return {"type": "buy", "card": None}
 
 
+def strategy_analysis(state: "GameState", pid: int) -> dict:
+    from analysis import strategy_analysis as _sa
+    return _sa(state, pid)
+
+
 STRATEGIES: dict[str, callable] = {
     "buy_cheapest":    strategy_buy_cheapest,
     "rush_landmarks":  strategy_rush_landmarks,
     "random":          strategy_random,
+    "analysis":        strategy_analysis,
 }
