@@ -181,8 +181,11 @@ def apply_build(state: AState, option: str | None) -> AState:
 # Core expectimax
 # ---------------------------------------------------------------------------
 
-_cache:  dict[tuple[AState, int], float] = {}
-_active: set[tuple[AState, int]]         = set()  # cycle guard (Amusement Park)
+_WIN_LMS = (True, True, True, True)
+
+# Cache key is (coins, cards, landmarks, depth) — raw tuple to avoid constructing
+# AState objects on lookups that turn out to be cache hits.
+_cache: dict[tuple, float] = {}
 
 
 def analyze(state: AState, depth: int) -> float:
@@ -194,23 +197,18 @@ def analyze(state: AState, depth: int) -> float:
       - Chance node : dice roll (probability-weighted)
       - Decision    : Radio Tower keep/reroll
       - Decision    : what to build
-      - Recursion   : depth-1 (or depth on Amusement Park extra turn)
+      - Recursion   : depth-1
     """
-    if state.is_won():  return WIN_VALUE
-    if depth <= 0:      return 0.0
+    if state.landmarks == _WIN_LMS: return WIN_VALUE
+    if depth <= 0:                  return 0.0
 
-    key = (state, depth)
-    if key in _cache:  return _cache[key]
-    if key in _active: return 0.0   # cycle: Amusement Park + zero-income doubles
-    _active.add(key)
+    key = (state.coins, state.cards, state.landmarks, depth)
+    if key in _cache: return _cache[key]
 
     dist = DIST_2 if state.has_train else DIST_1
 
     if state.has_tower:
-        # Pre-compute the expected value of rerolling once (same for every
-        # initial roll because dice are memoryless).
         val_reroll = _roll_ev(state, dist, depth)
-
         ev = 0.0
         for (roll, is_dbl), prob in dist.items():
             income   = calc_income(state.cards, state.landmarks, roll)
@@ -220,7 +218,6 @@ def analyze(state: AState, depth: int) -> float:
     else:
         ev = _roll_ev(state, dist, depth)
 
-    _active.discard(key)
     _cache[key] = ev
     return ev
 
@@ -246,14 +243,44 @@ def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
     extra_turn=True (Amusement Park doubles) → one free extra turn whose infinite
     chain of potential further extra turns is collapsed via geometric series:
       V_extra = base + P_DBL * V_extra  →  V_extra = base / (1 - P_DBL) = base * 6/5
-    This avoids infinite recursion when income is non-zero on doubles rolls.
+
+    AState construction is deferred until a real cache miss to avoid building
+    ~32M throwaway objects that were immediately discarded on cache hits.
     """
-    if state.is_won(): return WIN_VALUE
+    if state.landmarks == _WIN_LMS: return WIN_VALUE
+    next_depth = depth - 1
+    coins, cards, lms = state.coins, state.cards, state.landmarks
     best = 0.0
+
     for opt in build_options(state):
-        val = analyze(apply_build(state, opt), depth - 1)
+        # Compute new state components inline — no AState construction yet
+        if opt is None:
+            nc, nk, nl = coins, cards, lms
+        elif opt in CARD_IDX:
+            i  = CARD_IDX[opt]
+            nc = coins - CARD_COSTS[i]
+            nk = cards[:i] + (cards[i] + 1,) + cards[i + 1:]
+            nl = lms
+        else:
+            i  = LANDMARK_IDX[opt]
+            nc = coins - LANDMARK_COSTS[i]
+            nk = cards
+            nl = lms[:i] + (True,) + lms[i + 1:]
+
+        if nl == _WIN_LMS:
+            val = WIN_VALUE
+        elif next_depth <= 0:
+            val = 0.0
+        else:
+            key = (nc, nk, nl, next_depth)
+            if key in _cache:
+                val = _cache[key]
+            else:
+                val = analyze(AState(nc, nk, nl), next_depth)
+
         if val > best:
             best = val
+
     if extra_turn:
         best = min(WIN_VALUE, best / (1.0 - _P_DBL))
     return best
@@ -261,7 +288,6 @@ def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
 
 def clear_cache() -> None:
     _cache.clear()
-    _active.clear()
 
 
 def cache_stats() -> dict:
@@ -450,6 +476,7 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
 if __name__ == "__main__":
     depth = DEPTH
     show_graph = False
+    profile = False
     args = sys.argv[1:]
     i = 0
     while i < len(args):
@@ -460,6 +487,18 @@ if __name__ == "__main__":
             i += 1
         elif args[i] == "--show-time-graph":
             show_graph = True
+        elif args[i] == "--profile":
+            profile = True
         i += 1
 
-    _run_analysis(depth, show_graph)
+    if profile:
+        import cProfile, pstats, io
+        pr = cProfile.Profile()
+        pr.enable()
+        _run_analysis(depth, show_graph)
+        pr.disable()
+        s = io.StringIO()
+        pstats.Stats(pr, stream=s).sort_stats("cumulative").print_stats(20)
+        print(s.getvalue())
+    else:
+        _run_analysis(depth, show_graph)
