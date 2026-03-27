@@ -14,12 +14,9 @@ app = FastAPI()
 _state: Optional[E.GameState] = None
 
 
-# ---------------------------------------------------------------------------
-# Request models
-# ---------------------------------------------------------------------------
-
 class NewGameRequest(BaseModel):
     n_players: int = 2
+    solitaire: bool = False
 
 
 class ActionRequest(BaseModel):
@@ -32,16 +29,15 @@ class ActionRequest(BaseModel):
     card: Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
 @app.post("/api/new_game")
 def new_game(req: NewGameRequest):
     global _state
-    if req.n_players < 2 or req.n_players > 4:
-        raise HTTPException(400, "n_players must be 2–4")
-    _state = E.create_game(req.n_players)
+    if req.solitaire:
+        _state = E.create_game_solitaire()
+    else:
+        if req.n_players < 2 or req.n_players > 4:
+            raise HTTPException(400, "n_players must be 2–4")
+        _state = E.create_game(req.n_players)
     return _state.to_dict()
 
 
@@ -70,6 +66,10 @@ def take_action(req: ActionRequest):
                 E.action_roll(_state, req.n_dice or 1)
             case "reroll":
                 E.action_reroll(_state, req.do_reroll or False)
+            case "choose_purple":
+                if req.card is None:
+                    raise HTTPException(400, "card required")
+                E.action_choose_purple(_state, req.card)
             case "tv_station":
                 if req.target is None:
                     raise HTTPException(400, "target required")
@@ -104,10 +104,9 @@ def card_defs():
 @app.get("/api/landmark_defs")
 def landmark_defs():
     return {
-        lm: {"name": E.LANDMARK_NAMES[lm], "cost": E.LANDMARK_COSTS[lm]}
-        for lm in E.LANDMARKS
+        lm: {"name": data["name"], "cost": data["cost"]}
+        for lm, data in E.LANDMARKS.items()
     }
 
 
-# Serve static files last (catches all unmatched routes)
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"), html=True))

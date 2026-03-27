@@ -64,6 +64,8 @@ def strategy_buy_cheapest(state: GameState, pid: int) -> dict:
         return _default_roll(state, pid)
     if phase == "reroll":
         return {"type": "reroll", "do_reroll": False}
+    if phase == "choose_purple":
+        return {"type": "choose_purple", "card": state.pending_purple[0]}
     if phase == "tv_station":
         return _take_from_richest(state, pid)
     if phase == "business_center":
@@ -75,7 +77,7 @@ def strategy_buy_cheapest(state: GameState, pid: int) -> dict:
         # Prefer landmarks, else cheapest card
         lms = [b for b in builds if b in E.LANDMARKS]
         if lms:
-            return {"type": "buy", "card": min(lms, key=lambda x: E.LANDMARK_COSTS[x])}
+            return {"type": "buy", "card": min(lms, key=lambda x: E.LANDMARKS[x]["cost"])}
         card = min(
             (b for b in builds if b in E.CARDS),
             key=lambda x: E.CARDS[x].cost,
@@ -92,6 +94,8 @@ def strategy_rush_landmarks(state: GameState, pid: int) -> dict:
         return _default_roll(state, pid)
     if phase == "reroll":
         return {"type": "reroll", "do_reroll": False}
+    if phase == "choose_purple":
+        return {"type": "choose_purple", "card": state.pending_purple[0]}
     if phase == "tv_station":
         return _take_from_richest(state, pid)
     if phase == "business_center":
@@ -100,7 +104,7 @@ def strategy_rush_landmarks(state: GameState, pid: int) -> dict:
         builds = E.available_builds(state)
         lms = [b for b in builds if b in E.LANDMARKS]
         if lms:
-            return {"type": "buy", "card": min(lms, key=lambda x: E.LANDMARK_COSTS[x])}
+            return {"type": "buy", "card": min(lms, key=lambda x: E.LANDMARKS[x]["cost"])}
         return {"type": "buy", "card": None}
     return {"type": "buy", "card": None}
 
@@ -114,6 +118,8 @@ def strategy_random(state: GameState, pid: int) -> dict:
         return {"type": "roll", "n_dice": random.choice([1, 2]) if has_ts else 1}
     if phase == "reroll":
         return {"type": "reroll", "do_reroll": random.random() < 0.5}
+    if phase == "choose_purple":
+        return {"type": "choose_purple", "card": random.choice(state.pending_purple)}
     if phase == "tv_station":
         others = [i for i in range(state.n_players) if i != pid]
         return {"type": "tv_station", "target": random.choice(others)}

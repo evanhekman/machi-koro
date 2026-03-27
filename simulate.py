@@ -19,6 +19,8 @@ def apply_action(state: E.GameState, action: dict) -> None:
         E.action_roll(state, action.get("n_dice", 1))
     elif t == "reroll":
         E.action_reroll(state, action["do_reroll"])
+    elif t == "choose_purple":
+        E.action_choose_purple(state, action["card"])
     elif t == "tv_station":
         E.action_tv_station(state, action["target"])
     elif t == "business_center":
