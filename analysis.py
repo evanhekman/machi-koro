@@ -147,19 +147,29 @@ def calc_income(cards: tuple[int, ...],
 # Build options & state transitions
 # ---------------------------------------------------------------------------
 
-def build_options(state: AState) -> list[str | None]:
+_opts_cache: dict[tuple, tuple] = {}
+
+
+def build_options(state: AState) -> tuple[str | None, ...]:
     """
     All affordable cards/landmarks the player can purchase, plus None (skip).
     Cards are limited by SUPPLY_MAX; landmarks by whether already built.
+    Result is cached by (coins, cards, landmarks) — depth-independent.
     """
+    key = (state.coins, state.cards, state.landmarks)
+    cached = _opts_cache.get(key)
+    if cached is not None:
+        return cached
     opts: list[str | None] = [None]
-    for i, key in enumerate(CARD_KEYS):
+    for i, k in enumerate(CARD_KEYS):
         if state.coins >= CARD_COSTS[i] and state.cards[i] < SUPPLY_MAX:
-            opts.append(key)
-    for i, key in enumerate(LANDMARK_KEYS):
+            opts.append(k)
+    for i, k in enumerate(LANDMARK_KEYS):
         if state.coins >= LANDMARK_COSTS[i] and not state.landmarks[i]:
-            opts.append(key)
-    return opts
+            opts.append(k)
+    result = tuple(opts)
+    _opts_cache[key] = result
+    return result
 
 
 def apply_build(state: AState, option: str | None) -> AState:
@@ -288,6 +298,7 @@ def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
 
 def clear_cache() -> None:
     _cache.clear()
+    _opts_cache.clear()
 
 
 def cache_stats() -> dict:
