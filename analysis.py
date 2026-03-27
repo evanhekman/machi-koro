@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import sys
 import time
+from enum import IntEnum
 from typing import NamedTuple
 
 import engine as E
@@ -38,30 +39,37 @@ WIN_VALUE: float = 1.0 # leaf value when all landmarks are built
 # ---------------------------------------------------------------------------
 
 # Solitaire uses only BLUE and GREEN cards (no RED / PURPLE in supply)
-CARD_KEYS: tuple[str, ...] = (
-    "wheat_field",        # 0  BLUE   roll 1      cost 1
-    "ranch",              # 1  BLUE   roll 2      cost 1
-    "bakery",             # 2  GREEN  roll 2,3    cost 1   (+mall)
-    "convenience_store",  # 3  GREEN  roll 4      cost 2   (+mall)
-    "forest",             # 4  BLUE   roll 5      cost 3
-    "cheese_factory",     # 5  GREEN  roll 7      cost 5   (3×ranch)
-    "furniture_factory",  # 6  GREEN  roll 8      cost 3   (3×forest+mine)
-    "mine",               # 7  BLUE   roll 9      cost 6
-    "apple_orchard",      # 8  BLUE   roll 10     cost 3
-    "fruit_veg_market",   # 9  GREEN  roll 11,12  cost 2   (2×wheat+apple)
-)
-CARD_IDX: dict[str, int] = {k: i for i, k in enumerate(CARD_KEYS)}
-CARD_COSTS: tuple[int, ...] = tuple(E.CARDS[k].cost for k in CARD_KEYS)
+class Card(IntEnum):
+    wheat_field       = 0   # BLUE   roll 1      cost 1
+    ranch             = 1   # BLUE   roll 2      cost 1
+    bakery            = 2   # GREEN  roll 2,3    cost 1   (+mall)
+    convenience_store = 3   # GREEN  roll 4      cost 2   (+mall)
+    forest            = 4   # BLUE   roll 5      cost 3
+    cheese_factory    = 5   # GREEN  roll 7      cost 5   (3×ranch)
+    furniture_factory = 6   # GREEN  roll 8      cost 3   (3×forest+mine)
+    mine              = 7   # BLUE   roll 9      cost 6
+    apple_orchard     = 8   # BLUE   roll 10     cost 3
+    fruit_veg_market  = 9   # GREEN  roll 11,12  cost 2   (2×wheat+apple)
+
+NUM_CARDS: int = len(Card)
+
+class Landmark(IntEnum):
+    train_station  = NUM_CARDS + 0   # cost  4  — roll 2 dice
+    shopping_mall  = NUM_CARDS + 1   # cost 10  — +1 to bakery/conv_store income
+    amusement_park = NUM_CARDS + 2   # cost 16  — extra turn on doubles
+    radio_tower    = NUM_CARDS + 3   # cost 22  — optional reroll
+
+# String keys kept for engine interop and display
+CARD_KEYS: tuple[str, ...]     = tuple(c.name for c in Card)
+LANDMARK_KEYS: tuple[str, ...] = tuple(lm.name for lm in Landmark)
+
+CARD_COSTS: tuple[int, ...]     = tuple(E.CARDS[k].cost for k in CARD_KEYS)
+LANDMARK_COSTS: tuple[int, ...] = (4, 10, 16, 22)
 SUPPLY_MAX: int = 3  # copies per card in solitaire
 
-LANDMARK_KEYS: tuple[str, ...] = (
-    "train_station",   # 0  cost  4  — roll 2 dice
-    "shopping_mall",   # 1  cost 10  — +1 to bakery/conv_store income
-    "amusement_park",  # 2  cost 16  — extra turn on doubles
-    "radio_tower",     # 3  cost 22  — optional reroll
-)
-LANDMARK_IDX: dict[str, int] = {k: i for i, k in enumerate(LANDMARK_KEYS)}
-LANDMARK_COSTS: tuple[int, ...] = (4, 10, 16, 22)
+# Pre-built plain tuples — avoids enum __iter__ overhead in the hot loop
+_ALL_CARDS:     tuple[Card, ...]     = tuple(Card)
+_ALL_LANDMARKS: tuple[Landmark, ...] = tuple(Landmark)
 
 # ---------------------------------------------------------------------------
 # Dice distributions  {(roll_total, is_doubles): probability}
@@ -104,9 +112,9 @@ class AState(NamedTuple):
 
 
 def initial_astate() -> AState:
-    cards = [0] * len(CARD_KEYS)
-    cards[CARD_IDX["wheat_field"]] = 1
-    cards[CARD_IDX["bakery"]]      = 1
+    cards = [0] * NUM_CARDS
+    cards[Card.wheat_field] = 1
+    cards[Card.bakery]      = 1
     return AState(coins=3, cards=tuple(cards), landmarks=(False,)*4)
 
 
@@ -149,38 +157,38 @@ def calc_income(cards: tuple[int, ...],
 _opts_cache: dict[tuple, tuple] = {}
 
 
-def build_options(state: AState) -> tuple[str | None, ...]:
+def build_options(state: AState) -> tuple[int | None, ...]:
     """
     All affordable cards/landmarks the player can purchase, plus None (skip).
     Cards are limited by SUPPLY_MAX; landmarks by whether already built.
-    Result is cached by (coins, cards, landmarks) — depth-independent.
+    Returns Card/Landmark IntEnum members (ints) for zero-cost index lookup.
+    Result is cached per state — depth-independent.
     """
     cached = _opts_cache.get(state)
     if cached is not None:
         return cached
-    opts: list[str | None] = [None]
-    for i, k in enumerate(CARD_KEYS):
-        if state.coins >= CARD_COSTS[i] and state.cards[i] < SUPPLY_MAX:
-            opts.append(k)
-    for i, k in enumerate(LANDMARK_KEYS):
-        if state.coins >= LANDMARK_COSTS[i] and not state.landmarks[i]:
-            opts.append(k)
+    opts: list[int | None] = [None]
+    for card in _ALL_CARDS:
+        if state.coins >= CARD_COSTS[card] and state.cards[card] < SUPPLY_MAX:
+            opts.append(card)
+    for lm in _ALL_LANDMARKS:
+        if state.coins >= LANDMARK_COSTS[lm - NUM_CARDS] and not state.landmarks[lm - NUM_CARDS]:
+            opts.append(lm)
     result = tuple(opts)
     _opts_cache[state] = result
     return result
 
 
-def apply_build(state: AState, option: str | None) -> AState:
-    """Return new AState after purchasing option (or None = skip)."""
+def apply_build(state: AState, option: int | None) -> AState:
+    """Return new AState after purchasing option (Card/Landmark int, or None = skip)."""
     if option is None:
         return state
-    if option in CARD_IDX:
-        i  = CARD_IDX[option]
+    if option < NUM_CARDS:  # Card
         cs = list(state.cards)
-        cs[i] += 1
-        return AState(state.coins - CARD_COSTS[i], tuple(cs), state.landmarks)
-    # landmark
-    i   = LANDMARK_IDX[option]
+        cs[option] += 1
+        return AState(state.coins - CARD_COSTS[option], tuple(cs), state.landmarks)
+    # Landmark
+    i   = option - NUM_CARDS
     lms = list(state.landmarks)
     lms[i] = True
     return AState(state.coins - LANDMARK_COSTS[i], state.cards, tuple(lms))
@@ -264,13 +272,12 @@ def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
         # Compute new state components inline — no AState construction yet
         if opt is None:
             nc, nk, nl = coins, cards, lms
-        elif opt in CARD_IDX:
-            i  = CARD_IDX[opt]
-            nc = coins - CARD_COSTS[i]
-            nk = cards[:i] + (cards[i] + 1,) + cards[i + 1:]
+        elif opt < NUM_CARDS:  # Card — opt IS the index
+            nc = coins - CARD_COSTS[opt]
+            nk = cards[:opt] + (cards[opt] + 1,) + cards[opt + 1:]
             nl = lms
-        else:
-            i  = LANDMARK_IDX[opt]
+        else:                  # Landmark — index is opt - NUM_CARDS
+            i  = opt - NUM_CARDS
             nc = coins - LANDMARK_COSTS[i]
             nk = cards
             nl = lms[:i] + (True,) + lms[i + 1:]
@@ -364,7 +371,7 @@ def _action_reroll(astate: AState, last_dice: list[int]) -> dict:
 
 def _action_build(astate: AState) -> dict:
     """Choose what to buy (or skip) to maximise win probability."""
-    best_opt: str | None = None
+    best_opt: int | None = None
     best_val: float      = -1.0
 
     for opt in build_options(astate):
@@ -373,7 +380,9 @@ def _action_build(astate: AState) -> dict:
             best_val = val
             best_opt = opt
 
-    return {"type": "buy", "card": best_opt}
+    # Engine expects a string card/landmark name or None
+    name = best_opt.name if best_opt is not None else None
+    return {"type": "buy", "card": name}
 
 # ---------------------------------------------------------------------------
 # Standalone analysis
@@ -470,7 +479,7 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
         s_income = AState(s0.coins + income, s0.cards, s0.landmarks)
         opts     = build_options(s_income)
 
-        best_opt: str | None = None
+        best_opt: int | None = None
         best_val: float      = -1.0
         for opt in opts:
             val = analyze(apply_build(s_income, opt), depth - 1)
@@ -478,7 +487,7 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
                 best_val = val
                 best_opt = opt
 
-        label = best_opt if best_opt else "skip"
+        label = best_opt.name if best_opt is not None else "skip"
         print(f"  {roll:>3}  {income:>6}  {s_income.coins:>5}  {label:<22}  {best_val:.8f}")
 
 
