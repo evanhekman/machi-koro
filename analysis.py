@@ -1,3 +1,4 @@
+#!/Users/evanhekman/machi-koro/.venv/bin/python
 """
 Expectimax analysis engine for Machi Koro solitaire.
 
@@ -236,18 +237,25 @@ def _roll_ev(state: AState,
     return ev
 
 
+_P_DBL = 1.0 / 6.0  # P(doubles) with 2 dice
+
+
 def _best_build(state: AState, depth: int, extra_turn: bool) -> float:
     """
     Maximum win probability over all build options from the post-income state.
-    extra_turn=True (Amusement Park doubles) → depth is NOT decremented.
+    extra_turn=True (Amusement Park doubles) → one free extra turn whose infinite
+    chain of potential further extra turns is collapsed via geometric series:
+      V_extra = base + P_DBL * V_extra  →  V_extra = base / (1 - P_DBL) = base * 6/5
+    This avoids infinite recursion when income is non-zero on doubles rolls.
     """
     if state.is_won(): return WIN_VALUE
-    next_depth = depth if extra_turn else depth - 1
     best = 0.0
     for opt in build_options(state):
-        val = analyze(apply_build(state, opt), next_depth)
+        val = analyze(apply_build(state, opt), depth - 1)
         if val > best:
             best = val
+    if extra_turn:
+        best = min(WIN_VALUE, best / (1.0 - _P_DBL))
     return best
 
 
@@ -336,21 +344,87 @@ def _action_build(astate: AState) -> dict:
 # Standalone analysis
 # ---------------------------------------------------------------------------
 
-def _run_analysis(depth: int) -> None:
+def _show_graph(depths: list[int], times: list[float]) -> None:
+    import matplotlib.pyplot as plt
+    import math
+
+    plt.style.use("dark_background")
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig.patch.set_facecolor("#1a1a1a")
+    fig.suptitle(f"Expectimax search time — depths 1–{depths[-1]}", fontsize=13, color="white")
+
+    for ax in axes:
+        ax.set_facecolor("#1a1a1a")
+        ax.tick_params(colors="white")
+        ax.xaxis.label.set_color("white")
+        ax.yaxis.label.set_color("white")
+        ax.title.set_color("white")
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#444444")
+
+    # Left: raw time
+    axes[0].plot(depths, times, "o-", color="white")
+    axes[0].set_xlabel("Depth (turns ahead)")
+    axes[0].set_ylabel("Time (seconds)")
+    axes[0].set_title("Time per depth")
+    axes[0].set_xticks(depths)
+
+    # Right: log scale — exponential growth shows as a straight line
+    log_times = [math.log10(max(t, 1e-9)) for t in times]
+    axes[1].plot(depths, log_times, "o-", color="white")
+    axes[1].set_xlabel("Depth (turns ahead)")
+    axes[1].set_ylabel("log₁₀(time in seconds)")
+    axes[1].set_title("Same data on a log scale\n(straight line = exponential growth)")
+    axes[1].set_xticks(depths)
+    axes[1].axhline(0, color="#444444", linewidth=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def _run_analysis(depth: int, show_graph: bool = False) -> None:
+    import signal
+
     clear_cache()
     s0 = initial_astate()
     dist = DIST_1  # no Train Station at start
 
+    depths: list[int]  = []
+    probs:  list[float] = []
+    times:  list[float] = []
+
+    def _on_interrupt(sig, frame):
+        print("\nInterrupted — showing graph of completed depths...")
+        if depths:
+            _show_graph(depths, times)
+        sys.exit(0)
+
+    if show_graph:
+        signal.signal(signal.SIGINT, _on_interrupt)
+
     print(f"Expectimax analysis  depth={depth}")
     print("=" * 50)
 
-    t0   = time.perf_counter()
-    prob = analyze(s0, depth)
+    t0 = time.perf_counter()
+    prob = 0.0
+    for d in range(1, depth + 1):
+        print(f"  evaluating depth {d}...", end="", flush=True)
+        t1 = time.perf_counter()
+        prob = analyze(s0, d)
+        elapsed_d = time.perf_counter() - t1
+        depths.append(d)
+        probs.append(prob)
+        times.append(elapsed_d)
+        print(f"  P(win)={prob:.6f}  cache={len(_cache):,}  ({elapsed_d:.2f}s)")
     elapsed = time.perf_counter() - t0
 
-    print(f"Win probability in {depth} turns : {prob:.8f}")
+    print(f"\nWin probability in {depth} turns : {prob:.8f}")
     print(f"Cache entries                    : {len(_cache):,}")
     print(f"Time                             : {elapsed:.3f}s")
+
+    if show_graph and depths:
+        _show_graph(depths, times)
 
     print(f"\nRecommended first turn (initial state: 3 coins, wheat+bakery):")
     print(f"{'Roll':>5}  {'Income':>6}  {'Coins':>5}  {'Best buy':<22}  P(win|buy)")
@@ -375,10 +449,17 @@ def _run_analysis(depth: int) -> None:
 
 if __name__ == "__main__":
     depth = DEPTH
-    for arg in sys.argv[1:]:
-        if arg.startswith("--depth="):
-            depth = int(arg.split("=")[1])
-        elif arg == "--depth" and sys.argv.index(arg) + 1 < len(sys.argv):
-            depth = int(sys.argv[sys.argv.index(arg) + 1])
+    show_graph = False
+    args = sys.argv[1:]
+    i = 0
+    while i < len(args):
+        if args[i].startswith("--depth="):
+            depth = int(args[i].split("=")[1])
+        elif args[i] == "--depth" and i + 1 < len(args):
+            depth = int(args[i + 1])
+            i += 1
+        elif args[i] == "--show-time-graph":
+            show_graph = True
+        i += 1
 
-    _run_analysis(depth)
+    _run_analysis(depth, show_graph)
