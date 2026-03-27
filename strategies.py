@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import random
 
 if TYPE_CHECKING:
     from engine import GameState
@@ -111,7 +112,6 @@ def strategy_rush_landmarks(state: GameState, pid: int) -> dict:
 
 def strategy_random(state: GameState, pid: int) -> dict:
     """Roll random dice count, random reroll decision, buy random affordable card."""
-    import random
     phase = state.phase
     if phase == "roll":
         has_ts = state.players[pid].landmarks["train_station"]

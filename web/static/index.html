@@ -367,7 +367,7 @@ select.ov {
   <h1>MACHI KORO</h1>
   <div style="display:flex;align-items:center;gap:12px">
     <label style="color:var(--muted)">Players</label>
-    <select id="np"><option>2</option><option>3</option><option>4</option></select>
+    <select id="np"><option value="1">1 — Solitaire</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select>
   </div>
   <button class="abtn primary" onclick="startGame()">Start Game</button>
 </div>
@@ -616,10 +616,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function startGame() {
   const n = parseInt(document.getElementById('np').value);
+  const gameReq = n === 1 ? {solitaire: true} : {n_players: n};
   [cardDefs, landmarkDefs, state] = await Promise.all([
     api('GET','/api/card_defs'),
     api('GET','/api/landmark_defs'),
-    api('POST','/api/new_game',{n_players:n}),
+    api('POST','/api/new_game', gameReq),
   ]);
   selected = null;
   document.getElementById('setup').style.display = 'none';
@@ -821,7 +822,7 @@ async function runPhaseStreaks(transfers, color) {
 async function animateCoins(prevSt, newSt) {
   if (!prevSt || !newSt) return;
 
-  const wasRoll = (prevSt.phase === 'roll' || prevSt.phase === 'reroll') && newSt.last_roll;
+  const wasRoll = (prevSt.phase === 'roll' || prevSt.phase === 'reroll') && newSt.last_roll && newSt.phase !== 'reroll';
 
   if (wasRoll) {
     const phases = computePhaseTransfers(prevSt, newSt);
@@ -844,8 +845,8 @@ async function animateCoins(prevSt, newSt) {
   const gainers = deltas.map((d, i) => ({ i, d })).filter(x => x.d > 0);
   if (!gainers.length) return;
 
-  const isTvStation = prevSt.phase === 'tv_station';
-  if (isTvStation) setPoolGlow('purple');
+  const isPurpleAction = prevSt.phase === 'tv_station' || prevSt.phase === 'choose_purple';
+  if (isPurpleAction) setPoolGlow('purple');
 
   const promises = [];
   gainers.forEach(({ i: toIdx, d }) => {
@@ -857,11 +858,11 @@ async function animateCoins(prevSt, newSt) {
     if (!fromEl) return;
     const count = Math.min(Math.abs(d), 8);
     for (let s = 0; s < count; s++)
-      promises.push(animateCoinStreak(fromEl, toEl, s * 75, isTvStation ? PHASE_GLOW.purple : null));
+      promises.push(animateCoinStreak(fromEl, toEl, s * 75, isPurpleAction ? PHASE_GLOW.purple : null));
   });
 
   await Promise.all(promises);
-  if (isTvStation) { await sleep(500); setPoolGlow(null); }
+  if (isPurpleAction) { await sleep(500); setPoolGlow(null); }
 }
 
 // ── Roll action ────────────────────────────────────────────────────────────
@@ -1015,7 +1016,9 @@ function render() {
   if (window.lucide) lucide.createIcons();
   renderOverlay();
   if (state.phase === 'end') {
-    document.getElementById('winner-text').textContent = `Player ${state.winner+1} wins!`;
+    const turns = state.players[state.winner].turns;
+    const who = state.players.length === 1 ? 'You win' : `Player ${state.winner+1} wins`;
+    document.getElementById('winner-text').textContent = `${who} in ${turns} turn${turns === 1 ? '' : 's'}!`;
     document.getElementById('winner').style.display = 'flex';
   }
 }
@@ -1032,6 +1035,7 @@ function renderPlayers() {
   document.getElementById('right-col').innerHTML = '';
   left.forEach(i  => document.getElementById('left-col').appendChild(playerBox(i)));
   right.forEach(i => document.getElementById('right-col').appendChild(playerBox(i)));
+  document.getElementById('game').style.gridTemplateColumns = n === 1 ? '190px 1fr' : '190px 1fr 190px';
 }
 
 function playerBox(pid) {
@@ -1209,12 +1213,19 @@ function updateUI() {
 function renderOverlay() {
   const ov  = document.getElementById('overlay');
   const box = document.getElementById('overlay-box');
-  if (!['reroll','tv_station','business_center'].includes(state?.phase)) {
+  if (!['reroll','choose_purple','tv_station','business_center'].includes(state?.phase)) {
     ov.style.display='none'; return;
   }
   ov.style.display='flex';
   const pid = state.current_player;
 
+  if (state.phase==='choose_purple') {
+    const btns = state.pending_purple.map(k =>
+      `<button class="obtn primary" onclick="act({type:'choose_purple',card:'${k}'})">${cardDefs[k]?.name ?? k}</button>`
+    ).join('');
+    box.innerHTML=`<h2>Purple Card</h2><div class="overlay-sub">You rolled a 6. Choose one to activate:</div><div class="overlay-btns">${btns}</div>`;
+    return;
+  }
   if (state.phase==='reroll') {
     box.innerHTML=`
       <h2>Radio Tower</h2>

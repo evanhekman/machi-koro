@@ -131,13 +131,12 @@ def resolve_income(state: GameState, roll: int) -> None:
     active = state.current_player
     ap = state.players[active]
 
-    for pid, p in enumerate(state.players):
-        if pid == active:
-            continue
+    n = state.n_players
+    for i in range(n - 1):
+        pid = (active - 1 - i) % n
+        p = state.players[pid]
         has_mall = p.landmarks["shopping_mall"]
         for card_name, count in p.cards.items():
-            if count == 0:
-                continue
             card = CARDS.get(card_name)
             if not card or card.color != Color.RED or roll not in card.activation:
                 continue
@@ -148,8 +147,6 @@ def resolve_income(state: GameState, roll: int) -> None:
 
     for p in state.players:
         for card_name, count in p.cards.items():
-            if count == 0:
-                continue
             card = CARDS.get(card_name)
             if not card or card.color != Color.BLUE or roll not in card.activation:
                 continue
@@ -157,8 +154,6 @@ def resolve_income(state: GameState, roll: int) -> None:
 
     has_mall = ap.landmarks["shopping_mall"]
     for card_name, count in ap.cards.items():
-        if count == 0:
-            continue
         card = CARDS.get(card_name)
         if not card or card.color != Color.GREEN or roll not in card.activation:
             continue
@@ -263,8 +258,12 @@ def action_business_center(state: GameState, target: int, give_card: str, take_c
     assert CARDS[give_card].color != Color.PURPLE, "Can't trade purple cards"
     assert CARDS[take_card].color != Color.PURPLE, "Can't trade purple cards"
     ap.cards[give_card] -= 1
+    if ap.cards[give_card] == 0:
+        del ap.cards[give_card]
     tp.cards[give_card] = tp.cards.get(give_card, 0) + 1
     tp.cards[take_card] -= 1
+    if tp.cards[take_card] == 0:
+        del tp.cards[take_card]
     ap.cards[take_card] = ap.cards.get(take_card, 0) + 1
     state.phase = "build"
 
@@ -289,6 +288,7 @@ def action_buy(state: GameState, card_name: str | None) -> None:
             ap.cards[card_name] = ap.cards.get(card_name, 0) + 1
             state.supply[card_name] -= 1
         if all(ap.landmarks[lm] for lm in LANDMARKS):
+            ap.turns += 1
             state.phase = "end"
             state.winner = state.current_player
             return

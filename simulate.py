@@ -33,15 +33,11 @@ def apply_action(state: E.GameState, action: dict) -> None:
 
 def run_game(strategies: list[Strategy], max_turns: int = 500) -> dict:
     state = E.create_game(len(strategies))
-    turns = 0
-    while state.phase != "end" and turns < max_turns:
+    while state.phase != "end" and sum(p.turns for p in state.players) < max_turns:
         pid = state.current_player
-        prev_phase = state.phase
         action = strategies[pid](state, pid)
         apply_action(state, action)
-        if state.phase == "roll" and prev_phase != "roll":
-            turns += 1
-    return {"winner": state.winner, "turns": turns}
+    return {"winner": state.winner, "turns": sum(p.turns for p in state.players)}
 
 
 def run_n(strategies: list[Strategy], n: int) -> dict:
