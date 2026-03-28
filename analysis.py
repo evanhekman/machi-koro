@@ -406,7 +406,10 @@ def _action_build(astate: AState) -> dict:
 # Standalone analysis
 # ---------------------------------------------------------------------------
 
-def _show_graph(depths: list[int], times: list[float]) -> None:
+def _show_graph(depths: list[int], times: list[float], save_path: str | None = None) -> None:
+    import matplotlib
+    if save_path is not None:
+        matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import math
 
@@ -442,10 +445,14 @@ def _show_graph(depths: list[int], times: list[float]) -> None:
     axes[1].axhline(0, color="#444444", linewidth=0.5)
 
     plt.tight_layout()
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150)
+        print(f"Time graph saved to {save_path}")
+    else:
+        plt.show()
 
 
-def _run_analysis(depth: int, show_graph: bool = False) -> None:
+def _run_analysis(depth: int, save_graph: str | None = None) -> None:
     import signal
 
     clear_cache()
@@ -457,12 +464,12 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
     times:  list[float] = []
 
     def _on_interrupt(sig, frame):
-        print("\nInterrupted — showing graph of completed depths...")
+        print("\nInterrupted — saving graph of completed depths...")
         if depths:
-            _show_graph(depths, times)
+            _show_graph(depths, times, save_graph)
         sys.exit(0)
 
-    if show_graph:
+    if save_graph is not None:
         signal.signal(signal.SIGINT, _on_interrupt)
 
     print(f"Expectimax analysis  depth={depth}")
@@ -485,8 +492,8 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
     print(f"Cache entries                    : {len(_cache):,}")
     print(f"Time                             : {elapsed:.3f}s")
 
-    if show_graph and depths:
-        _show_graph(depths, times)
+    if save_graph is not None and depths:
+        _show_graph(depths, times, save_graph)
 
     print(f"\nRecommended first turn (initial state: 3 coins, wheat+bakery):")
     print(f"{'Roll':>5}  {'Income':>6}  {'Coins':>5}  {'Best buy':<22}  P(win|buy)")
@@ -511,7 +518,7 @@ def _run_analysis(depth: int, show_graph: bool = False) -> None:
 
 if __name__ == "__main__":
     depth = DEPTH
-    show_graph = False
+    save_graph: str | None = None
     profile = False
     args = sys.argv[1:]
     i = 0
@@ -522,7 +529,12 @@ if __name__ == "__main__":
             depth = int(args[i + 1])
             i += 1
         elif args[i] == "--show-time-graph":
-            show_graph = True
+            save_graph = save_graph or "time_graph.png"
+        elif args[i] == "--save-time-graph" and i + 1 < len(args):
+            save_graph = args[i + 1]
+            i += 1
+        elif args[i].startswith("--save-time-graph="):
+            save_graph = args[i].split("=", 1)[1]
         elif args[i] == "--profile":
             profile = True
         i += 1
@@ -531,10 +543,10 @@ if __name__ == "__main__":
         import cProfile, pstats, io
         pr = cProfile.Profile()
         pr.enable()
-        _run_analysis(depth, show_graph)
+        _run_analysis(depth, save_graph)
         pr.disable()
         s = io.StringIO()
         pstats.Stats(pr, stream=s).sort_stats("cumulative").print_stats(20)
         print(s.getvalue())
     else:
-        _run_analysis(depth, show_graph)
+        _run_analysis(depth, save_graph)
