@@ -1,0 +1,12 @@
+{
+    "trunk": [64, 64],
+    "dice_head": [],
+    "reroll_head": [],
+    "buy_head": [32],
+    "lr": 0.0003,
+    "baseline_decay": 0.99,
+    "n_episodes": 100000,
+    "eval_every": 1000,
+    "eval_n": 200,
+    "checkpoint_every": 0
+}

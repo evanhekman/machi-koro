@@ -12,15 +12,17 @@ Tree structure per turn:
                                    (or same depth on Amusement Park doubles)
 
 Usage (standalone):
-    python analysis.py [--depth N]
+    python strategy/analysis.py [--depth N]
 
 Usage (as strategy):
-    from analysis import strategy_analysis
+    from strategy.analysis import strategy_analysis
     # add to strategies.STRATEGIES or pass directly to simulate.run_game
 """
 from __future__ import annotations
 
-import sys
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
 import time
 from enum import IntEnum
 from typing import NamedTuple

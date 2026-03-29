@@ -132,7 +132,7 @@ def strategy_random(state: GameState, pid: int) -> dict:
 
 
 def strategy_analysis(state: "GameState", pid: int) -> dict:
-    from analysis import strategy_analysis as _sa
+    from strategy.analysis import strategy_analysis as _sa
     return _sa(state, pid)
 
 

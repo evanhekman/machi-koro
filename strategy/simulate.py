@@ -1,14 +1,19 @@
+#!/Users/evanhekman/machi-koro/.venv/bin/python
 """
 Headless batch simulator. Run directly:
-    python simulate.py buy_cheapest rush_landmarks --n 10000
+    python strategy/simulate.py buy_cheapest rush_landmarks --n 10000
 """
 from __future__ import annotations
+
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
 from collections import defaultdict
 from typing import Callable
 import argparse
 
 import engine as E
-from strategies import STRATEGIES
+from strategy.strategies import STRATEGIES
 
 Strategy = Callable
 
