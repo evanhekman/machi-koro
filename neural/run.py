@@ -8,6 +8,7 @@ Usage:
 The experiment directory must contain config.json. All outputs
 (log.jsonl, latest.pt, optional per-episode checkpoints) are written there.
 """
+
 from __future__ import annotations
 import json, os, sys
 
@@ -76,18 +77,18 @@ def evaluate(net: MachiKoroNet, n: int) -> dict:
 
 
 def train(cfg: dict, out_dir: str) -> None:
-    net       = MachiKoroNet(cfg)
+    net = MachiKoroNet(cfg)
     optimizer = torch.optim.Adam(net.parameters(), lr=cfg.get("lr", 3e-4))
 
-    baseline         = 0.0
-    baseline_decay   = cfg.get("baseline_decay", 0.99)
-    n_episodes       = cfg.get("n_episodes", 100_000)
-    eval_every       = cfg.get("eval_every", 1_000)
-    eval_n           = cfg.get("eval_n", 200)
+    baseline = 0.0
+    baseline_decay = cfg.get("baseline_decay", 0.99)
+    n_episodes = cfg.get("n_episodes", 100_000)
+    eval_every = cfg.get("eval_every", 1_000)
+    eval_n = cfg.get("eval_n", 200)
     checkpoint_every = cfg.get("checkpoint_every", 0)  # 0 = only keep latest
 
     log_path = os.path.join(out_dir, "log.jsonl")
-    latest   = os.path.join(out_dir, "latest.pt")
+    latest = os.path.join(out_dir, "latest.pt")
 
     # Resume from checkpoint if one exists
     start_ep = 1
@@ -101,8 +102,8 @@ def train(cfg: dict, out_dir: str) -> None:
 
     for ep in range(start_ep, n_episodes + 1):
         log_probs, turns = run_episode(net)
-        reward    = float(-turns)
-        baseline  = baseline_decay * baseline + (1 - baseline_decay) * reward
+        reward = float(-turns)
+        baseline = baseline_decay * baseline + (1 - baseline_decay) * reward
         advantage = reward - baseline
 
         loss = -torch.stack(log_probs).sum() * advantage
@@ -113,13 +114,19 @@ def train(cfg: dict, out_dir: str) -> None:
         if ep % eval_every == 0:
             stats = evaluate(net, eval_n)
             entry = {"episode": ep, **stats}
-            print(f"ep {ep:7d}  avg={stats['avg_turns']:.1f}  "
-                  f"min={stats['min_turns']}  max={stats['max_turns']}")
+            print(
+                f"ep {ep:7d}  avg={stats['avg_turns']:.1f}  "
+                f"min={stats['min_turns']}  max={stats['max_turns']}"
+            )
             with open(log_path, "a") as f:
                 f.write(json.dumps(entry) + "\n")
 
-            ckpt = {"episode": ep, "model": net.state_dict(),
-                    "optimizer": optimizer.state_dict(), "baseline": baseline}
+            ckpt = {
+                "episode": ep,
+                "model": net.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "baseline": baseline,
+            }
             torch.save(ckpt, latest)
             if checkpoint_every and ep % checkpoint_every == 0:
                 torch.save(ckpt, os.path.join(out_dir, f"ep_{ep:07d}.pt"))
@@ -132,7 +139,7 @@ def main() -> None:
         print("Usage: python neural/run.py <experiment_dir>")
         sys.exit(1)
 
-    out_dir  = sys.argv[1]
+    out_dir = sys.argv[1]
     cfg_path = os.path.join(out_dir, "config.json")
     if not os.path.exists(cfg_path):
         print(f"Error: {cfg_path} not found")

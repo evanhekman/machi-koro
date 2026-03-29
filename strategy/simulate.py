@@ -3,9 +3,11 @@
 Headless batch simulator. Run directly:
     python strategy/simulate.py buy_cheapest rush_landmarks --n 10000
 """
+
 from __future__ import annotations
 
 import os, sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from collections import defaultdict
@@ -29,7 +31,9 @@ def apply_action(state: E.GameState, action: dict) -> None:
     elif t == "tv_station":
         E.action_tv_station(state, action["target"])
     elif t == "business_center":
-        E.action_business_center(state, action["target"], action["give_card"], action["take_card"])
+        E.action_business_center(
+            state, action["target"], action["give_card"], action["take_card"]
+        )
     elif t == "buy":
         E.action_buy(state, action.get("card"))
     else:
@@ -63,13 +67,19 @@ def run_n(strategies: list[Strategy], n: int) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("strategies", nargs="+", choices=list(STRATEGIES.keys()),
-                        help="Strategy name for each player")
+    parser.add_argument(
+        "strategies",
+        nargs="+",
+        choices=list(STRATEGIES.keys()),
+        help="Strategy name for each player",
+    )
     parser.add_argument("--n", type=int, default=10_000)
     args = parser.parse_args()
 
     strat_fns = [STRATEGIES[s] for s in args.strategies]
     print(f"Running {args.n:,} games: {args.strategies}")
     results = run_n(strat_fns, args.n)
-    print(f"Win rates: { {args.strategies[pid]: f'{rate:.1%}' for pid, rate in results['win_rates'].items()} }")
+    print(
+        f"Win rates: { {args.strategies[pid]: f'{rate:.1%}' for pid, rate in results['win_rates'].items()} }"
+    )
     print(f"Avg turns: {results['avg_turns']:.1f}")

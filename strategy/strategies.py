@@ -32,13 +32,20 @@ def _take_from_richest(state: GameState, pid: int) -> dict:
 def _business_center_greedy(state: GameState, pid: int) -> dict:
     """Give our cheapest non-purple card, take their most expensive non-purple card."""
     ap = state.players[pid]
-    our = [(c, E.CARDS[c].cost) for c, n in ap.cards.items()
-           if n > 0 and c in E.CARDS and E.CARDS[c].color != E.Color.PURPLE]
+    our = [
+        (c, E.CARDS[c].cost)
+        for c, n in ap.cards.items()
+        if n > 0 and c in E.CARDS and E.CARDS[c].color != E.Color.PURPLE
+    ]
     if not our:
         # Fallback: nothing tradeable, just pick anything (shouldn't happen)
         give = next(iter(ap.cards))
-        return {"type": "business_center", "target": (pid + 1) % state.n_players,
-                "give_card": give, "take_card": give}
+        return {
+            "type": "business_center",
+            "target": (pid + 1) % state.n_players,
+            "give_card": give,
+            "take_card": give,
+        }
     give = min(our, key=lambda x: x[1])[0]
     best = (-1, None, None)  # (cost, target, card)
     for tid in range(state.n_players):
@@ -49,14 +56,24 @@ def _business_center_greedy(state: GameState, pid: int) -> dict:
                 if E.CARDS[c].cost > best[0]:
                     best = (E.CARDS[c].cost, tid, c)
     if best[1] is None:
-        return {"type": "business_center", "target": (pid + 1) % state.n_players,
-                "give_card": give, "take_card": give}
-    return {"type": "business_center", "target": best[1], "give_card": give, "take_card": best[2]}
+        return {
+            "type": "business_center",
+            "target": (pid + 1) % state.n_players,
+            "give_card": give,
+            "take_card": give,
+        }
+    return {
+        "type": "business_center",
+        "target": best[1],
+        "give_card": give,
+        "take_card": best[2],
+    }
 
 
 # ---------------------------------------------------------------------------
 # Strategies
 # ---------------------------------------------------------------------------
+
 
 def strategy_buy_cheapest(state: GameState, pid: int) -> dict:
     """Roll max dice, never reroll, buy cheapest available card (landmarks last)."""
@@ -78,7 +95,10 @@ def strategy_buy_cheapest(state: GameState, pid: int) -> dict:
         # Prefer landmarks, else cheapest card
         lms = [b for b in builds if b in E.LANDMARKS]
         if lms:
-            return {"type": "buy", "card": min(lms, key=lambda x: E.LANDMARKS[x]["cost"])}
+            return {
+                "type": "buy",
+                "card": min(lms, key=lambda x: E.LANDMARKS[x]["cost"]),
+            }
         card = min(
             (b for b in builds if b in E.CARDS),
             key=lambda x: E.CARDS[x].cost,
@@ -105,7 +125,10 @@ def strategy_rush_landmarks(state: GameState, pid: int) -> dict:
         builds = E.available_builds(state)
         lms = [b for b in builds if b in E.LANDMARKS]
         if lms:
-            return {"type": "buy", "card": min(lms, key=lambda x: E.LANDMARKS[x]["cost"])}
+            return {
+                "type": "buy",
+                "card": min(lms, key=lambda x: E.LANDMARKS[x]["cost"]),
+            }
         return {"type": "buy", "card": None}
     return {"type": "buy", "card": None}
 
@@ -133,12 +156,13 @@ def strategy_random(state: GameState, pid: int) -> dict:
 
 def strategy_analysis(state: "GameState", pid: int) -> dict:
     from strategy.analysis import strategy_analysis as _sa
+
     return _sa(state, pid)
 
 
 STRATEGIES: dict[str, callable] = {
-    "buy_cheapest":    strategy_buy_cheapest,
-    "rush_landmarks":  strategy_rush_landmarks,
-    "random":          strategy_random,
-    "analysis":        strategy_analysis,
+    "buy_cheapest": strategy_buy_cheapest,
+    "rush_landmarks": strategy_rush_landmarks,
+    "random": strategy_random,
+    "analysis": strategy_analysis,
 }

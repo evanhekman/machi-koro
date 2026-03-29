@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os, sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi import FastAPI, HTTPException
@@ -77,7 +78,9 @@ def take_action(req: ActionRequest):
             case "business_center":
                 if None in (req.target, req.give_card, req.take_card):
                     raise HTTPException(400, "target, give_card, take_card required")
-                E.action_business_center(_state, req.target, req.give_card, req.take_card)
+                E.action_business_center(
+                    _state, req.target, req.give_card, req.take_card
+                )
             case "buy":
                 E.action_buy(_state, req.card)
             case _:
@@ -109,4 +112,7 @@ def landmark_defs():
     }
 
 
-app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"), html=True))
+app.mount(
+    "/",
+    StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"), html=True),
+)

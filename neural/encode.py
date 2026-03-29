@@ -1,6 +1,7 @@
 #!/Users/evanhekman/machi-koro/.venv/bin/python
 from __future__ import annotations
 import os, sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 import torch
@@ -15,10 +16,10 @@ def encode_state(state: GameState, pid: int) -> torch.Tensor:
     p = state.players[pid]
     roll = sum(state.last_dice) if state.last_dice else 0
     vec = (
-        [state.supply.get(k, 0) for k in CARD_KEYS]      # 10: market supply
-        + [p.cards.get(k, 0)    for k in CARD_KEYS]      # 10: owned cards
-        + [int(p.landmarks[k])  for k in LANDMARK_KEYS]  #  4: landmarks (0/1)
-        + [p.coins, roll]                                 #  2: coins, last roll
+        [state.supply.get(k, 0) for k in CARD_KEYS]  # 10: market supply
+        + [p.cards.get(k, 0) for k in CARD_KEYS]  # 10: owned cards
+        + [int(p.landmarks[k]) for k in LANDMARK_KEYS]  #  4: landmarks (0/1)
+        + [p.coins, roll]  #  2: coins, last roll
     )
     return torch.tensor(vec, dtype=torch.float32)
 

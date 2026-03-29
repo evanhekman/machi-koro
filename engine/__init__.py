@@ -22,28 +22,90 @@ class CardDef:
 
 
 CARDS: dict[str, CardDef] = {
-    "wheat_field":       CardDef("Wheat Field",          Color.BLUE,   (1,),      1,  "Get 1 coin from bank, on anyone's turn."),
-    "ranch":             CardDef("Ranch",                Color.BLUE,   (2,),      1,  "Get 1 coin from bank, on anyone's turn."),
-    "bakery":            CardDef("Bakery",               Color.GREEN,  (2, 3),    1,  "Get 1 coin from bank, on your turn."),
-    "cafe":              CardDef("Cafe",                 Color.RED,    (3,),      2,  "Take 1 coin from active player, on their turn."),
-    "convenience_store": CardDef("Convenience Store",    Color.GREEN,  (4,),      2,  "Get 3 coins from bank, on your turn."),
-    "forest":            CardDef("Forest",               Color.BLUE,   (5,),      3,  "Get 1 coin from bank, on anyone's turn."),
-    "stadium":           CardDef("Stadium",              Color.PURPLE, (6,),      6,  "Take 2 coins from all players, on your turn."),
-    "tv_station":        CardDef("TV Station",           Color.PURPLE, (6,),      7,  "Take 5 coins from any one player, on your turn."),
-    "business_center":   CardDef("Business Center",      Color.PURPLE, (6,),      8,  "Trade one establishment with another player, on your turn."),
-    "cheese_factory":    CardDef("Cheese Factory",       Color.GREEN,  (7,),      5,  "Get 3 coins per Ranch you own, on your turn."),
-    "furniture_factory": CardDef("Furniture Factory",    Color.GREEN,  (8,),      3,  "Get 3 coins per Forest or Mine you own, on your turn."),
-    "mine":              CardDef("Mine",                 Color.BLUE,   (9,),      6,  "Get 5 coins from bank, on anyone's turn."),
-    "family_restaurant": CardDef("Family Restaurant",    Color.RED,    (9, 10),   3,  "Take 2 coins from active player, on their turn."),
-    "apple_orchard":     CardDef("Apple Orchard",        Color.BLUE,   (10,),     3,  "Get 3 coins from bank, on anyone's turn."),
-    "fruit_veg_market":  CardDef("Fruit and Veg Market", Color.GREEN,  (11, 12),  2,  "Get 2 coins per Wheat Field or Apple Orchard, on your turn."),
+    "wheat_field": CardDef(
+        "Wheat Field", Color.BLUE, (1,), 1, "Get 1 coin from bank, on anyone's turn."
+    ),
+    "ranch": CardDef(
+        "Ranch", Color.BLUE, (2,), 1, "Get 1 coin from bank, on anyone's turn."
+    ),
+    "bakery": CardDef(
+        "Bakery", Color.GREEN, (2, 3), 1, "Get 1 coin from bank, on your turn."
+    ),
+    "cafe": CardDef(
+        "Cafe", Color.RED, (3,), 2, "Take 1 coin from active player, on their turn."
+    ),
+    "convenience_store": CardDef(
+        "Convenience Store",
+        Color.GREEN,
+        (4,),
+        2,
+        "Get 3 coins from bank, on your turn.",
+    ),
+    "forest": CardDef(
+        "Forest", Color.BLUE, (5,), 3, "Get 1 coin from bank, on anyone's turn."
+    ),
+    "stadium": CardDef(
+        "Stadium", Color.PURPLE, (6,), 6, "Take 2 coins from all players, on your turn."
+    ),
+    "tv_station": CardDef(
+        "TV Station",
+        Color.PURPLE,
+        (6,),
+        7,
+        "Take 5 coins from any one player, on your turn.",
+    ),
+    "business_center": CardDef(
+        "Business Center",
+        Color.PURPLE,
+        (6,),
+        8,
+        "Trade one establishment with another player, on your turn.",
+    ),
+    "cheese_factory": CardDef(
+        "Cheese Factory",
+        Color.GREEN,
+        (7,),
+        5,
+        "Get 3 coins per Ranch you own, on your turn.",
+    ),
+    "furniture_factory": CardDef(
+        "Furniture Factory",
+        Color.GREEN,
+        (8,),
+        3,
+        "Get 3 coins per Forest or Mine you own, on your turn.",
+    ),
+    "mine": CardDef(
+        "Mine", Color.BLUE, (9,), 6, "Get 5 coins from bank, on anyone's turn."
+    ),
+    "family_restaurant": CardDef(
+        "Family Restaurant",
+        Color.RED,
+        (9, 10),
+        3,
+        "Take 2 coins from active player, on their turn.",
+    ),
+    "apple_orchard": CardDef(
+        "Apple Orchard",
+        Color.BLUE,
+        (10,),
+        3,
+        "Get 3 coins from bank, on anyone's turn.",
+    ),
+    "fruit_veg_market": CardDef(
+        "Fruit and Veg Market",
+        Color.GREEN,
+        (11, 12),
+        2,
+        "Get 2 coins per Wheat Field or Apple Orchard, on your turn.",
+    ),
 }
 
 LANDMARKS: dict[str, dict] = {
-    "train_station":  {"name": "Train Station",  "cost": 4},
-    "shopping_mall":  {"name": "Shopping Mall",  "cost": 10},
+    "train_station": {"name": "Train Station", "cost": 4},
+    "shopping_mall": {"name": "Shopping Mall", "cost": 10},
     "amusement_park": {"name": "Amusement Park", "cost": 16},
-    "radio_tower":    {"name": "Radio Tower",    "cost": 22},
+    "radio_tower": {"name": "Radio Tower", "cost": 22},
 }
 
 SUPPLY_COUNTS: dict[str, int] = {k: 6 for k in CARDS}
@@ -55,8 +117,12 @@ SOLITAIRE_SUPPLY: dict[str, int] = {
 @dataclass
 class PlayerState:
     coins: int = 3
-    cards: dict[str, int] = field(default_factory=lambda: {"wheat_field": 1, "bakery": 1})
-    landmarks: dict[str, bool] = field(default_factory=lambda: {lm: False for lm in LANDMARKS})
+    cards: dict[str, int] = field(
+        default_factory=lambda: {"wheat_field": 1, "bakery": 1}
+    )
+    landmarks: dict[str, bool] = field(
+        default_factory=lambda: {lm: False for lm in LANDMARKS}
+    )
     turns: int = 0
 
     def card_count(self, name: str) -> int:
@@ -113,14 +179,24 @@ def create_game_solitaire() -> GameState:
 
 def _base_income(card_name: str, owner: PlayerState) -> int:
     match card_name:
-        case "cheese_factory":    return 3 * owner.card_count("ranch")
-        case "furniture_factory": return 3 * (owner.card_count("forest") + owner.card_count("mine"))
-        case "fruit_veg_market":  return 2 * (owner.card_count("wheat_field") + owner.card_count("apple_orchard"))
-        case "convenience_store": return 3
-        case "mine":              return 5
-        case "apple_orchard":     return 3
-        case "family_restaurant": return 2
-        case _:                   return 1
+        case "cheese_factory":
+            return 3 * owner.card_count("ranch")
+        case "furniture_factory":
+            return 3 * (owner.card_count("forest") + owner.card_count("mine"))
+        case "fruit_veg_market":
+            return 2 * (
+                owner.card_count("wheat_field") + owner.card_count("apple_orchard")
+            )
+        case "convenience_store":
+            return 3
+        case "mine":
+            return 5
+        case "apple_orchard":
+            return 3
+        case "family_restaurant":
+            return 2
+        case _:
+            return 1
 
 
 def _mall_bonus(card_name: str) -> bool:
@@ -140,7 +216,9 @@ def resolve_income(state: GameState, roll: int) -> None:
             card = CARDS.get(card_name)
             if not card or card.color != Color.RED or roll not in card.activation:
                 continue
-            per_card = _base_income(card_name, p) + (1 if has_mall and _mall_bonus(card_name) else 0)
+            per_card = _base_income(card_name, p) + (
+                1 if has_mall and _mall_bonus(card_name) else 0
+            )
             taken = min(per_card * count, ap.coins)
             ap.coins -= taken
             p.coins += taken
@@ -157,11 +235,14 @@ def resolve_income(state: GameState, roll: int) -> None:
         card = CARDS.get(card_name)
         if not card or card.color != Color.GREEN or roll not in card.activation:
             continue
-        per_card = _base_income(card_name, ap) + (1 if has_mall and _mall_bonus(card_name) else 0)
+        per_card = _base_income(card_name, ap) + (
+            1 if has_mall and _mall_bonus(card_name) else 0
+        )
         ap.coins += per_card * count
 
     state.pending_purple = [
-        card_name for card_name, count in ap.cards.items()
+        card_name
+        for card_name, count in ap.cards.items()
         if count > 0
         and (card := CARDS.get(card_name)) is not None
         and card.color == Color.PURPLE
@@ -210,11 +291,15 @@ def _end_turn(state: GameState) -> None:
     state.phase = "roll"
 
 
-def action_roll(state: GameState, n_dice: int = 1, rng: random.Random | None = None) -> None:
+def action_roll(
+    state: GameState, n_dice: int = 1, rng: random.Random | None = None
+) -> None:
     assert state.phase == "roll"
     assert n_dice in (1, 2)
     if n_dice == 2:
-        assert state.active_player.landmarks["train_station"], "Train Station required to roll 2 dice"
+        assert state.active_player.landmarks["train_station"], (
+            "Train Station required to roll 2 dice"
+        )
     r = rng or random
     dice = [r.randint(1, 6) for _ in range(n_dice)]
     state.last_dice = dice
@@ -224,7 +309,9 @@ def action_roll(state: GameState, n_dice: int = 1, rng: random.Random | None = N
         resolve_income(state, sum(dice))
 
 
-def action_reroll(state: GameState, do_reroll: bool, rng: random.Random | None = None) -> None:
+def action_reroll(
+    state: GameState, do_reroll: bool, rng: random.Random | None = None
+) -> None:
     assert state.phase == "reroll"
     if do_reroll:
         r = rng or random
@@ -248,7 +335,9 @@ def action_tv_station(state: GameState, target: int) -> None:
     state.phase = "build"
 
 
-def action_business_center(state: GameState, target: int, give_card: str, take_card: str) -> None:
+def action_business_center(
+    state: GameState, target: int, give_card: str, take_card: str
+) -> None:
     assert state.phase == "business_center"
     ap = state.active_player
     tp = state.players[target]
