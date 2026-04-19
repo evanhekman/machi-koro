@@ -1,0 +1,17 @@
+[package]
+name = "machi-koro-solver"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "solver"
+path = "src/main.rs"
+
+[dependencies]
+rayon = "1"
+dashmap = "6"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

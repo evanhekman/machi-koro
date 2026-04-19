@@ -237,8 +237,6 @@ _WIN_LMS = (True, True, True, True)
 # Cache key is (coins, cards, landmarks, depth) — raw tuple to avoid constructing
 # AState objects on lookups that turn out to be cache hits.
 _cache: dict[tuple, float] = {}
-_cache_hits: int = 0
-_cache_misses: int = 0
 
 
 def analyze(state: AState, depth: int) -> float:
@@ -257,12 +255,9 @@ def analyze(state: AState, depth: int) -> float:
     if depth <= 0:
         return 0.0
 
-    global _cache_hits, _cache_misses
     key = state + (depth,)
     if key in _cache:
-        _cache_hits += 1
         return _cache[key]
-    _cache_misses += 1
 
     dist = DIST_2 if state.has_train else DIST_1
 
@@ -320,7 +315,6 @@ def _best_build(
     stored — only used as a build_options cache key and then discarded.
     AState construction is still deferred until a real cache miss.
     """
-    global _cache_hits
     if lms == _WIN_LMS:
         return WIN_VALUE
     next_depth = depth - 1
@@ -347,7 +341,6 @@ def _best_build(
         else:
             key = (nc, nk, nl, next_depth)  # plain tuple — no AState yet
             if key in _cache:
-                _cache_hits += 1
                 val = _cache[key]
             else:
                 val = analyze(AState(nc, nk, nl), next_depth)
@@ -361,21 +354,12 @@ def _best_build(
 
 
 def clear_cache() -> None:
-    global _cache_hits, _cache_misses
     _cache.clear()
     _opts_cache.clear()
-    _cache_hits = 0
-    _cache_misses = 0
 
 
 def cache_stats() -> dict:
-    total = _cache_hits + _cache_misses
-    return {
-        "entries": len(_cache),
-        "hits": _cache_hits,
-        "misses": _cache_misses,
-        "hit_rate": _cache_hits / total if total else 0.0,
-    }
+    return {"entries": len(_cache)}
 
 
 # ---------------------------------------------------------------------------
@@ -552,9 +536,7 @@ def _run_analysis(depth: int, save_graph: str | None = None) -> None:
         depths.append(d)
         probs.append(prob)
         times.append(elapsed_d)
-        total = _cache_hits + _cache_misses
-        hit_rate = _cache_hits / total if total else 0.0
-        print(f"  P(win)={prob:.6f}  cache={len(_cache):,}  hits={hit_rate:.1%}  ({elapsed_d:.2f}s)")
+        print(f"  P(win)={prob:.6f}  cache={len(_cache):,}  ({elapsed_d:.2f}s)")
     elapsed = time.perf_counter() - t0
 
     print(f"\nWin probability in {depth} turns : {prob:.8f}")
