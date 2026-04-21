@@ -160,9 +160,52 @@ def strategy_analysis(state: "GameState", pid: int) -> dict:
     return _sa(state, pid)
 
 
+def strategy_neural(state: "GameState", pid: int) -> dict:
+    import os, json, torch
+    from neural.model import MachiKoroNet
+    from neural.encode import encode_state, buy_mask, dice_mask, BUY_KEYS
+
+    _net = strategy_neural._net  # type: ignore[attr-defined]
+    if _net is None:
+        _dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "neural", "model_0")
+        with open(os.path.join(_dir, "config.json")) as f:
+            cfg = json.load(f)
+        net = MachiKoroNet(cfg)
+        ckpt = torch.load(os.path.join(_dir, "latest.pt"), weights_only=True)
+        net.load_state_dict(ckpt["model"])
+        net.eval()
+        strategy_neural._net = net
+        _net = net
+
+    phase = state.phase
+    x = encode_state(state, pid)
+
+    with torch.no_grad():
+        if phase == "roll":
+            logits = _net.dice_logits(x).masked_fill(~dice_mask(state, pid), float("-inf"))
+            return {"type": "roll", "n_dice": int(logits.argmax()) + 1}
+        if phase == "reroll":
+            return {"type": "reroll", "do_reroll": bool(int(_net.reroll_logits(x).argmax()))}
+        if phase == "build":
+            logits = _net.buy_logits(x).masked_fill(~buy_mask(state, pid), float("-inf"))
+            return {"type": "buy", "card": BUY_KEYS[int(logits.argmax())]}
+
+    if phase == "choose_purple":
+        return {"type": "choose_purple", "card": state.pending_purple[0]}
+    if phase == "tv_station":
+        return _take_from_richest(state, pid)
+    if phase == "business_center":
+        return _business_center_greedy(state, pid)
+    return {"type": "buy", "card": None}
+
+
+strategy_neural._net = None  # type: ignore[attr-defined]
+
+
 STRATEGIES: dict[str, callable] = {
     "buy_cheapest": strategy_buy_cheapest,
     "rush_landmarks": strategy_rush_landmarks,
     "random": strategy_random,
     "analysis": strategy_analysis,
+    "neural": strategy_neural,
 }

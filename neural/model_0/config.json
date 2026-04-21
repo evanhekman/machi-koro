@@ -1,0 +1,11 @@
+{
+    "trunk": [64, 64],
+    "dice_head": [],
+    "reroll_head": [],
+    "buy_head": [32],
+    "lr": 0.0003,
+    "baseline_decay": 0.99,
+    "n_epochs": 500,
+    "games_per_epoch": 100,
+    "save_every": 50
+}
