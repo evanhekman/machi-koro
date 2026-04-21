@@ -167,7 +167,7 @@ def strategy_neural(state: "GameState", pid: int) -> dict:
 
     _net = strategy_neural._net  # type: ignore[attr-defined]
     if _net is None:
-        _dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "neural", "model_0")
+        _dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "neural", "model_1")
         with open(os.path.join(_dir, "config.json")) as f:
             cfg = json.load(f)
         net = MachiKoroNet(cfg)

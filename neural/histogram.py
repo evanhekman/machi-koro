@@ -14,8 +14,10 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 sys.path.insert(0, _HERE)
 
-import torch
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import torch
 from engine import create_game_solitaire, action_roll, action_reroll, action_buy
 from model import MachiKoroNet
 from encode import encode_state, buy_mask, dice_mask, BUY_KEYS
@@ -91,13 +93,14 @@ def plot(greedy_turns: list[int], sampled_turns: list[int]) -> None:
         ax.legend()
 
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--n", type=int, default=1000, help="Number of games per strategy")
     parser.add_argument("--model", default=os.path.join(_HERE, "model_0"), help="Model directory")
+    parser.add_argument("--out", default="histogram.png", help="Output PNG path")
     args = parser.parse_args()
 
     print(f"Loading model from {args.model}")
@@ -108,7 +111,9 @@ def main() -> None:
         greedy_turns = simulate(net, args.n, greedy=True)
         sampled_turns = simulate(net, args.n, greedy=False)
 
-    plot(greedy_turns, sampled_turns)
+    fig = plot(greedy_turns, sampled_turns)
+    fig.savefig(args.out, dpi=150)
+    print(f"Saved to {args.out}")
 
 
 if __name__ == "__main__":

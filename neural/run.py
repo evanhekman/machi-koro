@@ -15,6 +15,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_HERE, ".."))
 sys.path.insert(0, _HERE)
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import torch
 from torch.distributions import Categorical
@@ -156,10 +158,10 @@ def train(cfg: dict, out_dir: str) -> None:
             _update_plot()
 
         smooth = _moving_avg(epoch_avgs, 20)
-        converged = len(smooth) > 20 and abs(smooth[-1] - smooth[-21]) < 1
+        converged = len(smooth) > 20 and abs(smooth[-1] - smooth[-21]) < 0.5
 
         if converged:
-            print(f"Converged at epoch {epoch} (20-epoch avg stable within 1 turn)")
+            print(f"Converged at epoch {epoch} (20-epoch avg stable within 0.5 turns)")
 
         if epoch % save_every == 0 or epoch == n_epochs or converged:
             torch.save({
