@@ -3,14 +3,23 @@ name = "machi-koro-solver"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "machi_koro_solver"
+path = "src/lib.rs"
+
 [[bin]]
 name = "solver"
 path = "src/main.rs"
+
+[[bin]]
+name = "simulate"
+path = "src/bin/simulate.rs"
 
 [dependencies]
 rayon = "1"
 dashmap = "6"
 zstd = "0.13"
+rand = "0.8"
 
 [profile.release]
 opt-level = 3

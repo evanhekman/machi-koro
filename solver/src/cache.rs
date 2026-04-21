@@ -23,6 +23,35 @@ pub fn save_delta(dir: &Path, depth: usize, delta: &HashMap<u64, f64>) -> std::i
     Ok(())
 }
 
+/// Load all deltas up to `max_depth` and merge them into one HashMap.
+/// Used by the simulator to pre-warm its cache from solver output.
+pub fn load_all_deltas(dir: &Path, max_depth: usize) -> std::io::Result<HashMap<u64, f64>> {
+    let mut merged: HashMap<u64, f64> = HashMap::new();
+    let mut kbuf = [0u8; 8];
+    let mut vbuf = [0u8; 8];
+
+    for depth in 1..=max_depth {
+        let path = delta_path(dir, depth);
+        if !path.exists() { break; }
+
+        let file = fs::File::open(&path)?;
+        let mut dec = zstd::Decoder::new(file)?;
+
+        let mut len_buf = [0u8; 8];
+        dec.read_exact(&mut len_buf)?;
+        let count = u64::from_le_bytes(len_buf) as usize;
+        merged.reserve(count);
+
+        for _ in 0..count {
+            dec.read_exact(&mut kbuf)?;
+            dec.read_exact(&mut vbuf)?;
+            merged.insert(u64::from_le_bytes(kbuf), f64::from_le_bytes(vbuf));
+        }
+    }
+
+    Ok(merged)
+}
+
 /// Load only the single delta needed to resume at `target_depth`.
 /// To compute depth d, only the depth-(d-1) delta is queried at runtime.
 /// Returns the frozen map and the highest depth present on disk (to detect cache coverage).

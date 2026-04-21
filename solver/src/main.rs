@@ -1,18 +1,14 @@
-mod build;
-mod cache;
-mod dice;
-mod income;
-mod solver;
-mod state;
+use machi_koro_solver::{
+    build::{apply_build, build_options_slice},
+    cache,
+    dice::DIST_1,
+    income::calc_income,
+    solver::analyze,
+    state::{AState, CARD_KEYS, LANDMARK_KEYS, MAX_COINS, NUM_CARDS, WIN_LMS},
+};
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use dashmap::DashMap;
-
-use state::{AState, CARD_KEYS, LANDMARK_KEYS, NUM_CARDS, MAX_COINS, WIN_LMS};
-use dice::DIST_1;
-use income::calc_income;
-use build::{build_options_slice, apply_build};
-use solver::analyze;
 
 fn main() {
     let mut depth = 10usize;
@@ -74,7 +70,7 @@ fn main() {
     println!("{}", "=".repeat(60));
 
     let t_total = std::time::Instant::now();
-    let (results, frozen) = solver::run(depth, &pool, start_depth, frozen, &cache_dir);
+    let (results, frozen) = machi_koro_solver::solver::run(depth, &pool, start_depth, frozen, &cache_dir);
 
     let (_, last_val, _) = results.last().unwrap();
     println!();
@@ -100,7 +96,7 @@ fn print_first_turn(depth: usize, frozen: &HashMap<u64, f64>) {
 
         let (opts, n) = build_options_slice(new_coins, &initial.cards, initial.landmarks);
 
-        let mut best_opt: Option<u8> = None;
+        let mut best_opt = None;
         let mut best_val: f64 = -1.0;
 
         for &opt in &opts[..n] {

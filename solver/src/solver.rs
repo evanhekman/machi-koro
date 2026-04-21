@@ -121,7 +121,7 @@ fn compute_ev(
     }
 }
 
-fn roll_ev(
+pub fn roll_ev(
     state: AState,
     dist: &[Outcome],
     depth: usize,
@@ -160,7 +160,6 @@ pub fn best_build(
     let best = opts[..n].iter().map(|&opt| {
         let (nc, nk, nl) = apply_build(coins, &cards, landmarks, opt);
         if nl == WIN_LMS { return 1.0_f64; }
-        if next_depth == 0 { return 0.0_f64; }
         analyze(AState { coins: nc, cards: nk, landmarks: nl }, next_depth, frozen, write)
     }).fold(0.0_f64, f64::max);
 
@@ -171,7 +170,51 @@ pub fn best_build(
     }
 }
 
+/// Like `best_build` but also returns which option was chosen.
+pub fn choose_build(
+    coins: u8,
+    cards: [u8; NUM_CARDS],
+    landmarks: u8,
+    depth: usize,
+    extra_turn: bool,
+    frozen: &HashMap<u64, f64>,
+    write: &DashMap<u64, f64>,
+) -> (crate::build::Opt, f64) {
+    use crate::build::{apply_build as ab, build_options_slice, Opt};
+
+    if landmarks == WIN_LMS { return (None, 1.0); }
+    let next_depth = depth.saturating_sub(1);
+
+    let (opts, n) = build_options_slice(coins, &cards, landmarks);
+
+    let mut best_opt: Opt = None;
+    let mut best_val: f64 = -1.0;
+
+    for &opt in &opts[..n] {
+        let (nc, nk, nl) = ab(coins, &cards, landmarks, opt);
+        let val = if nl == WIN_LMS {
+            1.0
+        } else if next_depth == 0 {
+            0.0
+        } else {
+            analyze(AState { coins: nc, cards: nk, landmarks: nl }, next_depth, frozen, write)
+        };
+        if val > best_val {
+            best_val = val;
+            best_opt = opt;
+        }
+    }
+
+    let best_val = if extra_turn {
+        (best_val / (1.0 - P_DBL)).min(1.0)
+    } else {
+        best_val
+    };
+
+    (best_opt, best_val)
+}
+
 #[inline]
-fn add_coins(base: u8, income: u8) -> u8 {
+pub fn add_coins(base: u8, income: u8) -> u8 {
     (base as u16 + income as u16).min(MAX_COINS as u16) as u8
 }
