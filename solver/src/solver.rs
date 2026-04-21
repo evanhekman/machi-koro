@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 use dashmap::DashMap;
 use rayon::prelude::*;
 
@@ -6,6 +7,7 @@ use crate::state::{AState, NUM_CARDS, MAX_COINS, WIN_LMS};
 use crate::income::calc_income;
 use crate::build::{build_options_slice, apply_build};
 use crate::dice::{Outcome, DIST_1, DIST_2};
+use crate::cache;
 
 const P_DBL: f64 = 1.0 / 6.0;
 
@@ -24,12 +26,14 @@ const WRITE_SHARDS: usize = 512;
 pub fn run(
     max_depth: usize,
     pool: &rayon::ThreadPool,
+    start_depth: usize,
+    mut frozen: HashMap<u64, f64>,
+    cache_dir: &Path,
 ) -> (Vec<(usize, f64, f64)>, HashMap<u64, f64>) {
-    let mut frozen: HashMap<u64, f64> = HashMap::new();
     let initial = AState::initial();
     let mut results = Vec::with_capacity(max_depth);
 
-    for d in 1..=max_depth {
+    for d in (start_depth + 1)..=max_depth {
         let write: DashMap<u64, f64> = DashMap::with_shard_amount(WRITE_SHARDS);
 
         let t0 = std::time::Instant::now();
@@ -38,14 +42,29 @@ pub fn run(
 
         let new_entries = write.len();
         frozen.reserve(new_entries);
+        let mut delta = HashMap::with_capacity(new_entries);
         for (k, v) in write {
-            frozen.entry(k).or_insert(v);
+            if frozen.insert(k, v).is_none() {
+                delta.insert(k, v);
+            }
         }
+
+        // Discard all entries except depth d: to compute depth d+1 we only ever
+        // need depth-d lookups (those are immediate hits; we never recurse deeper).
+        // This keeps frozen at O(states) instead of O(states × depth).
+        let d_bits = (d as u64) << 32;
+        let mask: u64 = 0xff_u64 << 32;
+        frozen.retain(|&k, _| k & mask == d_bits);
+        frozen.shrink_to_fit();
 
         println!(
             "  depth {:2}  P(win)={:.6}  cache={:>9}  new={:>8}  ({:.3}s)",
             d, val, frozen.len(), new_entries, elapsed
         );
+
+        if let Err(e) = cache::save_delta(cache_dir, d, &delta) {
+            eprintln!("  warning: failed to save cache delta for depth {d}: {e}");
+        }
 
         results.push((d, val, elapsed));
     }

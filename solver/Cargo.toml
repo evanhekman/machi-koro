@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 rayon = "1"
 dashmap = "6"
+zstd = "0.13"
 
 [profile.release]
 opt-level = 3

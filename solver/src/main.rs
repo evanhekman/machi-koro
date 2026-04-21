@@ -1,9 +1,11 @@
 mod build;
+mod cache;
 mod dice;
 mod income;
 mod solver;
 mod state;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use dashmap::DashMap;
 
 use state::{AState, CARD_KEYS, LANDMARK_KEYS, NUM_CARDS, MAX_COINS, WIN_LMS};
@@ -49,11 +51,30 @@ fn main() {
         .build()
         .expect("failed to build thread pool");
 
+    let cache_dir = PathBuf::from("../cache");
+    let (frozen, start_depth) = match cache::load_deltas(&cache_dir, depth) {
+        Ok((f, d)) if d > 0 => {
+            println!("Cache on disk covers depth {d}, loaded single delta ({} entries)", f.len());
+            (f, d)
+        }
+        Ok(_) => (HashMap::new(), 0),
+        Err(e) => {
+            eprintln!("warning: could not load cache: {e}");
+            (HashMap::new(), 0)
+        }
+    };
+
+    if start_depth >= depth {
+        println!("Cache already covers depth {depth}. Nothing to compute.");
+        print_first_turn(depth, &frozen);
+        return;
+    }
+
     println!("Expectimax solver  depth={depth}  workers={workers}");
     println!("{}", "=".repeat(60));
 
     let t_total = std::time::Instant::now();
-    let (results, frozen) = solver::run(depth, &pool);
+    let (results, frozen) = solver::run(depth, &pool, start_depth, frozen, &cache_dir);
 
     let (_, last_val, _) = results.last().unwrap();
     println!();
