@@ -1,8 +1,9 @@
 pub mod build;
 pub mod cache;
+pub mod coast;
 pub mod dice;
 pub mod income;
-pub mod lookahead;
 pub mod simulate;
 pub mod solver;
 pub mod state;
+pub mod strategy;
