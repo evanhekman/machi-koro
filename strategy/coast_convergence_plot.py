@@ -83,6 +83,8 @@ def main() -> None:
                         help="JSON from neural/histogram.py ({turns: [...]})")
     parser.add_argument("--neural-mean", type=float, default=None,
                         help="Neural net mean turns (optional asymptote line)")
+    parser.add_argument("--depth-min", type=int, default=None, help="Only plot depths >= this")
+    parser.add_argument("--depth-max", type=int, default=None, help="Only plot depths <= this")
     parser.add_argument("--out", default="convergence.png")
     args = parser.parse_args()
 
@@ -104,6 +106,10 @@ def main() -> None:
         print(f"Neural net mean: {neural_mean:.2f} turns")
 
     data = load_data(data_path)
+    if args.depth_min is not None:
+        data = {d: v for d, v in data.items() if d >= args.depth_min}
+    if args.depth_max is not None:
+        data = {d: v for d, v in data.items() if d <= args.depth_max}
     print(f"Depths: {sorted(data)}  games each: {len(next(iter(data.values())))}")
 
     plot(data, strategy, neural_mean, args.out)
